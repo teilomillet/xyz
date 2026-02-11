@@ -1,5 +1,7 @@
 +++
 title = 'about'
+date = '1997-06-01'
+dateformat = 'January 2006'
 draft = false
 +++
 

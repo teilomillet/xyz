@@ -4,7 +4,7 @@
   <p class="tagline">{{ .Site.Params.description }}</p>
   <h2>recent posts</h2>
   <ul class="post-list">
-    {{ range first 10 .Site.RegularPages.ByDate.Reverse }}
+    {{ range first 10 (where .Site.RegularPages "Section" "posts").ByDate.Reverse }}
     <li>
       <a href="{{ .RelPermalink }}">{{ .Title }}</a>
       <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "Jan 2, 2006" }}</time>

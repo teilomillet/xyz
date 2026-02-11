@@ -19,13 +19,13 @@ I tried to build [enzu](https://github.com/teilomillet/enzu) as a company at [ST
 
 ## open source
 
-[gollm](https://github.com/teilomillet/gollm) — unified Go interface for LLM providers. prompt optimization, structured output, model comparison. 627 stars.
-
-[raggo](https://github.com/teilomillet/raggo) — production-ready RAG library in Go. document loading, semantic chunking, vector storage. 205 stars.
-
-[enzu](https://github.com/teilomillet/enzu) — budget-controlled LLM execution in Python. hard caps on tokens, time, and cost. typed outcomes for every run.
-
 [textpolicy](https://github.com/teilomillet/textpolicy) — reinforcement learning for text generation on Apple Silicon (MLX). GRPO, GSPO, LoRA fine-tuning.
+
+[enzu](https://github.com/teilomillet/enzu) — budget-controlled recursive language model (RLM) execution in Python. hard caps on tokens, time, and cost. typed outcomes for every run.
+
+[gollm](https://github.com/teilomillet/gollm) — unified Go interface for LLM providers. prompt optimization, structured output, model comparison.
+
+[raggo](https://github.com/teilomillet/raggo) — production-ready RAG library in Go. document loading, semantic chunking, vector storage.
 
 ## models
 

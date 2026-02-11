@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode }}">
+<head>
+  {{- partial "head.html" . -}}
+</head>
+<body>
+  <nav>
+    <a href="/">{{ .Site.Title }}</a>
+    {{ range .Site.Menus.main }}
+      <a href="{{ .URL }}">{{ .Name }}</a>
+    {{ end }}
+    <button class="toggle" onclick="document.body.classList.toggle('dark');localStorage.setItem('t',document.body.classList.contains('dark'))">
+      light/dark
+    </button>
+  </nav>
+  {{- block "main" . }}{{ end -}}
+  <footer>&copy; 2026 Teïlo Millet</footer>
+  <script>
+if(localStorage.getItem('t')==='true')document.body.classList.add('dark')
+;(function(){
+  var s=document.querySelector('.sidebar');if(!s)return
+  var links=s.querySelectorAll('a'),map=[]
+  links.forEach(function(a){
+    var id=a.getAttribute('href')
+    if(id){var el=document.querySelector(id);if(el)map.push({a:a,el:el})}
+  })
+  if(!map.length)return
+  window.addEventListener('scroll',function(){
+    var y=window.scrollY+80
+    var current=-1
+    map.forEach(function(m,i){if(m.el.offsetTop<=y)current=i})
+    map.forEach(function(m,i){
+      if(i<current)m.a.classList.add('past')
+      else m.a.classList.remove('past')
+    })
+  })
+})()
+  </script>
+</body>
+</html>

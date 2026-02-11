@@ -1,0 +1,15 @@
+{{ define "main" }}
+<div class="content-full home">
+  <h1>{{ .Site.Title }}</h1>
+  <p class="tagline">{{ .Site.Params.description }}</p>
+  <h2>recent posts</h2>
+  <ul class="post-list">
+    {{ range first 10 .Site.RegularPages.ByDate.Reverse }}
+    <li>
+      <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+      <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "Jan 2, 2006" }}</time>
+    </li>
+    {{ end }}
+  </ul>
+</div>
+{{ end }}

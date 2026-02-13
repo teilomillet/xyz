@@ -2,6 +2,7 @@
 <div class="content-full home">
   <h1>{{ .Site.Title }}</h1>
   <p class="tagline">{{ .Site.Params.description }}</p>
+
   <h2>recent posts</h2>
   <ul class="post-list">
     {{ range first 10 (where .Site.RegularPages "Section" "posts").ByDate.Reverse }}

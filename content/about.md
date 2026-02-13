@@ -7,7 +7,7 @@ draft = false
 
 ## who
 
-I'm Teïlo Millet — a self-taught AI engineer based in Paris. I'm interested in research around large language models: reinforcement learning, alignment, safety, and everything in between.
+I'm Teïlo Millet, based in Paris. I'm interested in research around large language models: reinforcement learning, alignment, safety, and everything in between.
 
 ## now
 

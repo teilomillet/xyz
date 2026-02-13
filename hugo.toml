@@ -1,10 +1,10 @@
 baseURL = 'https://teilo.xyz'
 languageCode = 'en-us'
-title = "teilo"
+title = "teïlo"
 
 [params]
 author = "Teïlo Millet"
-description = "Meta-curious layman"
+description = "I build open-source tools for language models and write about AI."
 
 github = "teilomillet"
 twitter = "teilomillet"
@@ -18,9 +18,14 @@ url = "/posts/"
 weight = 1
 
 [[menu.main]]
+name = "conversations"
+url = "/conversations/"
+weight = 2
+
+[[menu.main]]
 name = "about"
 url = "/about/"
-weight = 2
+weight = 3
 
 [markup]
   [markup.tableOfContents]

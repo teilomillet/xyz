@@ -1,6 +1,6 @@
 +++
 title = 'Ordinateur'
-date = 2025-12-14T17:06:52+01:00
+date = 2024-12-14T17:06:52+01:00
 draft = false
 tags = ['teilo', 'ordinateur']
 

@@ -31,3 +31,8 @@ weight = 3
   [markup.tableOfContents]
     startLevel = 2
     endLevel = 4
+  [markup.goldmark.extensions.passthrough]
+    enable = true
+    [markup.goldmark.extensions.passthrough.delimiters]
+      block = [['$$', '$$']]
+      inline = [['$', '$']]

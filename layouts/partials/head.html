@@ -102,6 +102,8 @@ body.dark .post-header time { color: #777; }
 .post-content p { margin-bottom: 1.4rem; }
 .post-content h2 { font-size: 34px; font-weight: 400; margin: 2.5rem 0 0.8rem; }
 .post-content h3 { font-size: 28px; font-weight: 400; margin: 2rem 0 0.6rem; font-style: italic; }
+body.dark .post-content h2 { font-weight: 700; }
+body.dark .post-content h3 { font-weight: 600; }
 .post-content ul, .post-content ol { margin: 1rem 0 1.4rem 1.5rem; }
 .post-content li { margin-bottom: 0.5rem; }
 .post-content li::marker { content: "\25A0\0020"; font-size: 0.5em; }
@@ -112,19 +114,23 @@ body.dark .post-header time { color: #777; }
   font-style: italic;
 }
 .post-content code {
-  font-size: 0.85em;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.8em;
   background: #f0f0f0;
   padding: 2px 5px;
 }
 body.dark .post-content code { background: #222; }
 .post-content pre {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   overflow-x: auto;
-  padding: 1rem;
+  padding: 1.2rem;
   margin: 1.5rem 0;
   background: #f5f5f5;
+  font-size: 0.75em;
+  line-height: 1.5;
 }
 body.dark .post-content pre { background: #111; }
-.post-content pre code { background: none; padding: 0; }
+.post-content pre code { background: none; padding: 0; font-size: inherit; }
 .post-content img { max-width: 100%; }
 .post-content strong { font-weight: 700; }
 
@@ -164,6 +170,25 @@ footer {
 }
 body.dark footer { color: #777; }
 
+/* h4 */
+.post-content h4 { font-size: 23px; font-weight: 700; margin: 1.5rem 0 0.5rem; }
+
+/* Tables */
+.post-content table { border-collapse: collapse; margin: 1.5rem 0; font-size: 0.85em; overflow-x: auto; display: block; }
+.post-content th, .post-content td { border: 1px solid #ddd; padding: 0.4rem 0.7rem; text-align: left; }
+body.dark .post-content th, body.dark .post-content td { border-color: #333; }
+.post-content thead th { font-weight: 700; background: #f5f5f5; }
+body.dark .post-content thead th { background: #111; }
+
+/* Figures */
+.post-content figure { margin: 2rem 0; }
+.post-content figcaption { font-size: 0.8em; color: #888; margin-top: 0.5rem; line-height: 1.4; }
+body.dark .post-content figcaption { color: #777; }
+
+/* Footnotes */
+.post-content .footnotes { font-size: 0.8em; margin-top: 3rem; border-top: 1px solid #ddd; padding-top: 1rem; }
+body.dark .post-content .footnotes { border-top-color: #333; }
+
 /* Mobile */
 @media (max-width: 768px) {
   body { font-size: 23px; }
@@ -186,3 +211,18 @@ body.dark footer { color: #777; }
   nav .toggle { font-size: 19px; }
 }
 </style>
+{{ if .Params.math }}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  renderMathInElement(document.body, {
+    delimiters: [
+      {left: "\\(", right: "\\)", display: false},
+      {left: "\\[", right: "\\]", display: true}
+    ]
+  });
+});
+</script>
+{{ end }}

@@ -52,9 +52,9 @@ $$A_i^{\text{MaxRL}} = \frac{r_i - \bar{r}}{\bar{r} + \epsilon}$$
 
 For binary rewards with $K$ successes out of $N$ rollouts, correct completions receive advantage $(N-K)/K$ and incorrect completions receive $-1$.
 
-**Entropy-Weighted Token Credit.** GTPO [(Tan et al., 2026)](https://arxiv.org/abs/2508.04349) reshapes the scalar group advantage into per-token rewards using the policy's own entropy. The formulation separates rollouts into correct ($\mathcal{O}^+$) and incorrect ($\mathcal{O}^-$) sets and defines a token-level reward $\tilde{r}_{i,t} = \alpha_1 r_i + \alpha_2 \cdot (H_{i,t} / \sum_k H_{k,t}) \cdot d_t$, where $H_{i,t}$ is the true policy entropy at position $t$. Our implementation uses surprisal (the negative log-probability of the sampled token) as a cheaper proxy.
+**Entropy-Weighted Token Credit.** GTPO [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349) reshapes the scalar group advantage into per-token rewards using the policy's own entropy. The formulation separates rollouts into correct ($\mathcal{O}^+$) and incorrect ($\mathcal{O}^-$) sets and defines a token-level reward $\tilde{r}_{i,t} = \alpha_1 r_i + \alpha_2 \cdot (H_{i,t} / \sum_k H_{k,t}) \cdot d_t$, where $H_{i,t}$ is the true policy entropy at position $t$. Our implementation uses surprisal (the negative log-probability of the sampled token) as a cheaper proxy.
 
-**Process Reward Models.** PRMs [(Lightman et al., 2023)](https://arxiv.org/abs/2305.20050) score intermediate reasoning steps but require step-level annotations and a separate model. Our approach requires no annotations, using the model's own surprisal as a proxy for decision importance.
+**Process Reward Models.** PRMs [(Lightman et al., 2023)](https://arxiv.org/abs/2305.20050); [(Wang et al., 2023)](https://arxiv.org/abs/2312.08935) score intermediate reasoning steps but require step-level annotations and a separate model. Our approach requires no annotations, using the model's own surprisal as a proxy for decision importance.
 
 ## Method: A Composable Credit Assignment Stack
 
@@ -73,7 +73,7 @@ Given $N$ rollouts with binary rewards for a prompt, we compute episode-level ad
 
 ### Token Level: GTPO Surprisal Weighting
 
-The episode-level advantage $A_i$ is a scalar for the entire completion. To differentiate *within* the completion, we need a per-token signal. GTPO [(Tan et al., 2026)](https://arxiv.org/abs/2508.04349) treats tokens where the policy distribution spreads across many plausible continuations (high entropy) as decision points that receive amplified credit, and treats tokens where the next token was near-certain (low entropy) as routine.
+The episode-level advantage $A_i$ is a scalar for the entire completion. To differentiate *within* the completion, we need a per-token signal. GTPO [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349) treats tokens where the policy distribution spreads across many plausible continuations (high entropy) as decision points that receive amplified credit, and treats tokens where the next token was near-certain (low entropy) as routine.
 
 #### Surprisal vs. entropy
 
@@ -324,7 +324,7 @@ We estimate this at ~800k--1M generations total, roughly 5--6× our current budg
 ## Limitations
 
 - **Planning mask quality.** Our regex-based strategic gram detector (18 hand-curated phrases) is simpler than the full semantic clustering pipeline [(Wang et al., 2025)](https://arxiv.org/abs/2509.03646) and has not been validated against human annotations. The failure modes are asymmetric, and this asymmetry points directly at the highest-value improvement. False negatives (planning tokens mislabeled as execution) are actively destructive: SEPA pools away their surprisal signal, inverting the intended effect. False positives (execution tokens mislabeled as planning) are benign: SEPA simply leaves their noise unchanged. This means the mask's *recall* on planning tokens matters more than its precision, and the first priority for improving the stack is reducing false negatives. The mask also misses implicit planning: a model may shift strategy mid-sequence without producing any of the 18 trigger phrases. A learned or attention-based detector that captures implicit planning would address both failure modes. We designed the mask as a swappable component specifically to enable this upgrade.
-- **Surprisal vs. entropy.** Our GTPO implementation uses surprisal ($-\log p$ of the sampled token) rather than the true policy entropy that the original formulation specifies [(Tan et al., 2026)](https://arxiv.org/abs/2508.04349), and does not separate rollouts into correct/incorrect sets. Surprisal compounds a problem that exists even with true entropy (high-uncertainty execution tokens receiving disproportionate credit) by adding sampling artifacts from peaked distributions.
+- **Surprisal vs. entropy.** Our GTPO implementation uses surprisal ($-\log p$ of the sampled token) rather than the true policy entropy that the original formulation specifies [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349), and does not separate rollouts into correct/incorrect sets. Surprisal compounds a problem that exists even with true entropy (high-uncertainty execution tokens receiving disproportionate credit) by adding sampling artifacts from peaked distributions.
 - **Insufficient compute.** Our primary results are not statistically significant. We report them as directional evidence, not conclusions.
 - **Single model and task.** Qwen3-4B on math reasoning only.
 - **Truncated runs.** The original design called for 100 steps per run; we reduced to 40 for the lean campaign and then cut short at step 12--16 because of compute budget exhaustion.
@@ -340,8 +340,8 @@ Our experiments showed that C8 (MaxRL+SEPA) ranked first at a single early check
 ## References
 
 - Lightman, H., Kosaraju, V., Burda, Y., Edwards, H., Baker, B., Lee, T., Leike, J., Schulman, J., Sutskever, I., & Cobbe, K. (2023). [Let's Verify Step by Step](https://arxiv.org/abs/2305.20050). *arXiv:2305.20050*.
-- Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Zhang, M., Li, Y. K., Wu, Y., & Guo, D. (2024). [DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models](https://arxiv.org/abs/2402.03300). *arXiv:2402.03300*.
-- Tajwar, F., Zheng, A., Xie, T., & Zanette, A. (2026). [Maximum Likelihood Reinforcement Learning](https://arxiv.org/abs/2602.02710). *arXiv:2602.02710*.
-- Tan, H., Wang, Z., Pan, J., Lin, J., Wang, H., Wu, Y., Chen, T., Zheng, Z., Tang, Z., & Yang, H. (2026). [GTPO and GRPO-S: Token and Sequence-Level Reward Shaping with Policy Entropy](https://arxiv.org/abs/2508.04349). *arXiv:2508.04349*.
+- Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y. K., Wu, Y., & Guo, D. (2024). [DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models](https://arxiv.org/abs/2402.03300). *arXiv:2402.03300*.
+- Tajwar, F., Zeng, G., Zhou, Y., Song, Y., Arora, D., Jiang, Y., Schneider, J., Salakhutdinov, R., Feng, H., & Zanette, A. (2026). [Maximum Likelihood Reinforcement Learning](https://arxiv.org/abs/2602.02710). *arXiv:2602.02710*.
+- Tan, H., Wang, Z., Pan, J., Lin, J., Wang, H., Wu, Y., Chen, T., Zheng, Z., Tang, Z., & Yang, H. (2025). [GTPO and GRPO-S: Token and Sequence-Level Reward Shaping with Policy Entropy](https://arxiv.org/abs/2508.04349). *arXiv:2508.04349*.
 - Wang, H., Xu, Q., Liu, C., Wu, J., Lin, F., & Chen, W. (2025). [Emergent Hierarchical Reasoning in LLMs through Reinforcement Learning](https://arxiv.org/abs/2509.03646). *arXiv:2509.03646*.
-- Wang, P., Li, L., Shao, Z., Xu, R. X., Dai, D., Li, Y., Chen, D., Wu, Y., & Sui, Z. (2024). [Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations](https://arxiv.org/abs/2312.08935). *arXiv:2312.08935*.
+- Wang, P., Li, L., Shao, Z., Xu, R. X., Dai, D., Li, Y., Chen, D., Wu, Y., & Sui, Z. (2023). [Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations](https://arxiv.org/abs/2312.08935). *arXiv:2312.08935*.

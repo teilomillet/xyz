@@ -22,10 +22,6 @@ name = "conversations"
 url = "/conversations/"
 weight = 2
 
-[[menu.main]]
-name = "about"
-url = "/about/"
-weight = 3
 
 [markup]
   [markup.tableOfContents]

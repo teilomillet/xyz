@@ -1,0 +1,22 @@
+{{ define "main" }}
+<div class="content-full collection-entry">
+  <header class="entry-header">
+    <h1>{{ .Title }}</h1>
+    <div class="entry-meta-line">
+      {{ with .Params.author }}<span class="meta-pill">{{ . }}</span>{{ end }}
+      {{ with .Params.year }}<span class="meta-pill">{{ . }}</span>{{ end }}
+      {{ with .Params.category }}<span class="meta-pill">{{ . }}</span>{{ end }}
+    </div>
+  </header>
+
+  <div class="post-content">
+    {{ .Content }}
+  </div>
+
+  {{ if .Params.paper_url }}
+  <div class="paper-ref">
+    <a href="{{ .Params.paper_url }}" target="_blank" rel="noopener">{{ .Params.paper_title | default "read the paper" }} &rarr;</a>
+  </div>
+  {{ end }}
+</div>
+{{ end }}

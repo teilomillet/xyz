@@ -22,6 +22,11 @@ name = "conversations"
 url = "/conversations/"
 weight = 2
 
+[[menu.main]]
+name = "collections"
+url = "/collections/"
+weight = 3
+
 
 [markup]
   [markup.tableOfContents]

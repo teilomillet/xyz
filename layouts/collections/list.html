@@ -1,0 +1,28 @@
+{{ define "main" }}
+<div class="content-full collection-list">
+  <h1>{{ .Title }}</h1>
+  {{ with .Content }}<div class="section-intro">{{ . }}</div>{{ end }}
+
+  <input type="text" id="collection-search" placeholder="search..." autocomplete="off">
+
+  <div class="entries">
+    {{ range .Pages.ByTitle }}
+    <a href="{{ .RelPermalink }}" class="entry" data-search="{{ .Title | lower }} {{ .Params.author | lower }} {{ .Params.category | lower }} {{ .Params.description | lower }}">
+      <div class="entry-top">
+        <span class="entry-title">{{ .Title }}</span>
+        <span class="entry-meta">{{ .Params.author }}, {{ .Params.year }}</span>
+      </div>
+      <p class="entry-desc">{{ .Params.description }}</p>
+    </a>
+    {{ end }}
+  </div>
+</div>
+<script>
+document.getElementById('collection-search').addEventListener('input', function(e) {
+  var q = e.target.value.toLowerCase();
+  document.querySelectorAll('.entry').forEach(function(el) {
+    el.style.display = el.dataset.search.indexOf(q) > -1 ? '' : 'none';
+  });
+});
+</script>
+{{ end }}

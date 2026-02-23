@@ -56,6 +56,7 @@ else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').mat
       var pop=document.createElement('div')
       pop.className='fn-popover'
       pop.innerHTML=fn.innerHTML
+      pop.querySelectorAll('a[href^="http"]').forEach(function(a){a.setAttribute('target','_blank');a.setAttribute('rel','noopener')})
       document.body.appendChild(pop)
       var rect=ref.getBoundingClientRect()
       var top=rect.bottom+window.scrollY+8

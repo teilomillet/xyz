@@ -41,12 +41,22 @@ Beyond $N_{\max}$, throughput decreases. Adding resources makes things worse.
 
 ## notes
 
-**USL is a superset of Amdahl.** The $\kappa$ term is what makes it more general. Amdahl's law can never model retrograde throughput — the phenomenon where adding resources makes performance *worse*. USL can.
+#### USL is a superset of Amdahl
 
-**Retrograde is a diagnostic signal.** If your measured throughput goes down with increasing load, coherency costs dominate. That tells you where to look: cache invalidation, lock contention with mutual dependency, cross-node state synchronization.
+The $\kappa$ term is what makes it more general. Amdahl's law can never model retrograde throughput — the phenomenon where adding resources makes performance *worse*. USL can.
 
-**Not a curve-fitting exercise.** Gunther emphasizes that the point isn't making the USL curve pass through every data point. The point is extracting $\sigma$ and $\kappa$ to understand the *nature* of the bottleneck — contention vs. coherency.
+#### Retrograde is a diagnostic signal
 
-**Notation varies.** Some sources use $\alpha/\beta$ instead of $\sigma/\kappa$. Same parameters: $\sigma = \alpha$ (contention), $\kappa = \beta$ (coherency).
+If your measured throughput goes down with increasing load, coherency costs dominate. That tells you where to look: cache invalidation, lock contention with mutual dependency, cross-node state synchronization.
 
-**Needs steady-state data.** Collect data points under stable conditions with sufficient warm-up. At least six data points at different load levels for a meaningful regression.
+#### Not a curve-fitting exercise
+
+Gunther emphasizes that the point isn't making the USL curve pass through every data point. The point is extracting $\sigma$ and $\kappa$ to understand the *nature* of the bottleneck — contention vs. coherency.
+
+#### Notation varies
+
+Some sources use $\alpha/\beta$ instead of $\sigma/\kappa$. Same parameters: $\sigma = \alpha$ (contention), $\kappa = \beta$ (coherency).
+
+#### Needs steady-state data
+
+Collect data points under stable conditions with sufficient warm-up. At least six data points at different load levels for a meaningful regression.

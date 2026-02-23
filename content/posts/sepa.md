@@ -44,17 +44,25 @@ We present preliminary experiments testing the framework in a factorial ablation
 
 ## Background
 
-**Group Relative Policy Optimization.** GRPO [(Shao et al., 2024)](https://arxiv.org/abs/2402.03300) generates $N$ rollouts per prompt and uses group-relative advantages $A_i = r_i - \bar{r}$. It weights all problems equally and applies the same scalar advantage to every token.
+#### Group Relative Policy Optimization
 
-**Maximum Likelihood RL.** The ML objective decomposes as a harmonic sum over pass@$k$ [(Tajwar et al., 2026)](https://arxiv.org/abs/2602.02710): $\nabla J_{\text{ML}}(x) = \sum_{k=1}^{\infty} \frac{1}{k} \nabla \text{pass@}k(x)$. Standard RL keeps only $k=1$. MaxRL recovers the full sum via
+GRPO [(Shao et al., 2024)](https://arxiv.org/abs/2402.03300) generates $N$ rollouts per prompt and uses group-relative advantages $A_i = r_i - \bar{r}$. It weights all problems equally and applies the same scalar advantage to every token.
+
+#### Maximum Likelihood RL
+
+The ML objective decomposes as a harmonic sum over pass@$k$ [(Tajwar et al., 2026)](https://arxiv.org/abs/2602.02710): $\nabla J_{\text{ML}}(x) = \sum_{k=1}^{\infty} \frac{1}{k} \nabla \text{pass@}k(x)$. Standard RL keeps only $k=1$. MaxRL recovers the full sum via
 
 $$A_i^{\text{MaxRL}} = \frac{r_i - \bar{r}}{\bar{r} + \epsilon}$$
 
 For binary rewards with $K$ successes out of $N$ rollouts, correct completions receive advantage $(N-K)/K$ and incorrect completions receive $-1$.
 
-**Entropy-Weighted Token Credit.** GTPO [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349) reshapes the scalar group advantage into per-token rewards using the policy's own entropy. The formulation separates rollouts into correct ($\mathcal{O}^+$) and incorrect ($\mathcal{O}^-$) sets and defines a token-level reward $\tilde{r}_{i,t} = \alpha_1 r_i + \alpha_2 \cdot (H_{i,t} / \sum_k H_{k,t}) \cdot d_t$, where $H_{i,t}$ is the true policy entropy at position $t$. Our implementation uses surprisal (the negative log-probability of the sampled token) as a cheaper proxy.
+#### Entropy-Weighted Token Credit
 
-**Process Reward Models.** PRMs [(Lightman et al., 2023)](https://arxiv.org/abs/2305.20050); [(Wang et al., 2023)](https://arxiv.org/abs/2312.08935) score intermediate reasoning steps but require step-level annotations and a separate model. Our approach requires no annotations, using the model's own surprisal as a proxy for decision importance.
+GTPO [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349) reshapes the scalar group advantage into per-token rewards using the policy's own entropy. The formulation separates rollouts into correct ($\mathcal{O}^+$) and incorrect ($\mathcal{O}^-$) sets and defines a token-level reward $\tilde{r}_{i,t} = \alpha_1 r_i + \alpha_2 \cdot (H_{i,t} / \sum_k H_{k,t}) \cdot d_t$, where $H_{i,t}$ is the true policy entropy at position $t$. Our implementation uses surprisal (the negative log-probability of the sampled token) as a cheaper proxy.
+
+#### Process Reward Models
+
+PRMs [(Lightman et al., 2023)](https://arxiv.org/abs/2305.20050); [(Wang et al., 2023)](https://arxiv.org/abs/2312.08935) score intermediate reasoning steps but require step-level annotations and a separate model. Our approach requires no annotations, using the model's own surprisal as a proxy for decision importance.
 
 ## Method: A Composable Credit Assignment Stack
 
@@ -104,13 +112,19 @@ where $\bar{S}$ is the mean surprisal across the completion. Tokens with above-a
 
 Both HICRA and SEPA require identifying which tokens correspond to *planning* (high-level strategic reasoning) vs. *execution* (routine procedural steps). This distinction is grounded in the two-phase learning dynamics reported by [Wang et al. (2025)](https://arxiv.org/abs/2509.03646): RL training first consolidates procedural reliability (execution-token entropy drops sharply), then shifts to exploration of strategic planning (semantic diversity of planning tokens increases). Once procedural skills are mastered, the bottleneck for improved reasoning is strategic exploration.
 
-**Strategic Gram detection.** Wang et al. introduce *Strategic Grams* (SGs) as a functional proxy for planning tokens: $n$-grams ($n \in [3,5]$) that function as semantic units guiding logical flow (deduction, branching, and backtracing). Their pipeline identifies SGs via (1) semantic clustering of $n$-grams using sentence embeddings, (2) corpus-level frequency analysis (Cluster Document Frequency), and (3) filtering for the top 20% most frequent clusters. Our implementation uses a simplified variant: a curated list of 18 strategic phrases matched via word-boundary regex over sliding token windows.[^3] This produces a binary mask $\mathbf{1}_{\text{plan}}(t) \in \{0, 1\}$ for each token.
+#### Strategic Gram detection
+
+Wang et al. introduce *Strategic Grams* (SGs) as a functional proxy for planning tokens: $n$-grams ($n \in [3,5]$) that function as semantic units guiding logical flow (deduction, branching, and backtracing). Their pipeline identifies SGs via (1) semantic clustering of $n$-grams using sentence embeddings, (2) corpus-level frequency analysis (Cluster Document Frequency), and (3) filtering for the top 20% most frequent clusters. Our implementation uses a simplified variant: a curated list of 18 strategic phrases matched via word-boundary regex over sliding token windows.[^3] This produces a binary mask $\mathbf{1}_{\text{plan}}(t) \in \{0, 1\}$ for each token.
 
 [^3]: The 18 phrases, grouped by category: *hesitation*: "wait let me," "let me think," "on second thought"; *verification*: "let me check," "let me verify," "is this right," "double check"; *backtracking*: "try another approach," "go back and," "start over," "that's not right," "that doesn't work"; *alternatives*: "another way to," "or we could," "what if we"; *metacognition*: "notice that," "the key is," "the key insight."
 
-**The planning mask as a swappable component.** The planning mask is the foundation on which both HICRA and SEPA stand. If the mask misidentifies tokens, then both methods operate on corrupted signal. The framework is designed so that the mask is a *swappable module*: any classifier that produces a binary planning/execution partition over tokens (learned, attention-based, or the full SG pipeline) can be substituted without changing anything else in the stack.
+#### The planning mask as a swappable component
 
-**HICRA advantage.** Given the planning mask, HICRA [(Wang et al., 2025)](https://arxiv.org/abs/2509.03646) amplifies planning-token advantages *after* GTPO weighting:
+The planning mask is the foundation on which both HICRA and SEPA stand. If the mask misidentifies tokens, then both methods operate on corrupted signal. The framework is designed so that the mask is a *swappable module*: any classifier that produces a binary planning/execution partition over tokens (learned, attention-based, or the full SG pipeline) can be substituted without changing anything else in the stack.
+
+#### HICRA advantage
+
+Given the planning mask, HICRA [(Wang et al., 2025)](https://arxiv.org/abs/2509.03646) amplifies planning-token advantages *after* GTPO weighting:
 
 $$A^{\text{HICRA}}(t) = A^{\text{GTPO}}(t) + \alpha \cdot |A^{\text{GTPO}}(t)| \cdot \mathbf{1}_{\text{plan}}(t)$$
 
@@ -232,9 +246,13 @@ We tested the framework in a factorial ablation crossing episode-level advantage
 | C5 | MaxRL | None (flat) | Episode-level replication |
 | C8 | MaxRL | GTPO+SEPA | Episode + token (tested) |
 
-**Setup.** Qwen3-4B-Instruct-2507 fine-tuned with LoRA (rank 64) on math reasoning with binary correctness reward. 16 problems per step, 16 rollouts per problem (256 generations/step), temperature 0.7, max 2048 tokens. AdamW with lr = 5 × 10⁻⁵. GTPO β = 0.1, HICRA α = 0.2, SEPA annealing over 100 steps with 10-step delay.
+#### Setup
 
-**Budget.** Due to compute constraints, we ran two campaigns:
+Qwen3-4B-Instruct-2507 fine-tuned with LoRA (rank 64) on math reasoning with binary correctness reward. 16 problems per step, 16 rollouts per problem (256 generations/step), temperature 0.7, max 2048 tokens. AdamW with lr = 5 × 10⁻⁵. GTPO β = 0.1, HICRA α = 0.2, SEPA annealing over 100 steps with 10-step delay.
+
+#### Budget
+
+Due to compute constraints, we ran two campaigns:
 
 - **Pilot**: all 8 conditions (including C2, C6, and C7) × 2 seeds × 20 steps = 16 runs.
 - **Lean**: 5 conditions × 4 seeds × 12--16 steps (truncated by budget) = 20 runs.
@@ -291,13 +309,17 @@ Prior paired experiments estimated an effect size of ~0.2 percentage points for 
 
 ## Discussion
 
-**Credit assignment may affect speed, not ceiling.** The step-10 snapshot showed the predicted ranking (C8 > C5 > C4 > C3 > C1), but the AUC analysis revealed this to be an artifact of measuring at a single point: integrated over the training curve, all conditions fell within a 0.3pp band with overlapping confidence intervals.
+#### Credit assignment may affect speed, not ceiling
+
+The step-10 snapshot showed the predicted ranking (C8 > C5 > C4 > C3 > C1), but the AUC analysis revealed this to be an artifact of measuring at a single point: integrated over the training curve, all conditions fell within a 0.3pp band with overlapping confidence intervals.
 
 This does not rule out a speed effect; it means our runs were too short to detect one via AUC. If the stack helps models learn *faster* rather than learn *better*, then the effect would appear as a wider AUC gap in early training that closes as conditions converge. With only 10--15 steps of usable data and $\lambda$ never exceeding 0.10 (pilot) or 0.06 (lean), the mechanism reached less than a tenth of its designed strength. A meaningful AUC comparison requires runs long enough for the early-training advantage to accumulate before convergence erases it.
 
 Token-level credit assignment methods are typically evaluated by final performance after a fixed training budget. If the benefit is faster convergence, then methods that appear equivalent at convergence may differ substantially in sample efficiency, and the right metric is area under the learning curve, not a point estimate.
 
-**What we planned vs. what we found.** We began with the hypothesis that SEPA would produce a measurable correctness improvement over HICRA and that composing it with MaxRL would yield the best overall condition. We designed a 2 × 4 factorial ablation with five hypotheses, eight conditions, and a target budget of 64 runs at 100 steps each (~1.6M generations).
+#### What we planned vs. what we found
+
+We began with the hypothesis that SEPA would produce a measurable correctness improvement over HICRA and that composing it with MaxRL would yield the best overall condition. We designed a 2 × 4 factorial ablation with five hypotheses, eight conditions, and a target budget of 64 runs at 100 steps each (~1.6M generations).
 
 The experiment evolved in three phases. First, a pilot (16 runs, 20 steps) validated that all conditions ran correctly but showed no separation: every cell landed within ±2% of every other. Second, we cut the design from 8 conditions to 5 and from 8 seeds to 4 to reduce compute. Third, the lean campaign was terminated at step 12--16 when compute budget was exhausted.
 
@@ -305,11 +327,17 @@ At that point we had ~159k of the planned 1.6M generations. The original hypothe
 
 We report this trajectory because the reframing was forced by the data, not constructed after the fact. The original hypotheses remain testable with more compute; the speed hypothesis is new and was not anticipated by the original design.
 
-**The framework contribution stands independent of the empirical result.** The composable stack (separating episode-level from token-level, and within token-level separating surprisal cleaning from advantage boosting) is a useful abstraction regardless of whether SEPA ultimately outperforms HICRA. It enables systematic ablation of credit assignment components and clarifies what each mechanism does.
+#### The framework contribution stands independent of the empirical result
 
-**Why the signal may be small.** The most likely explanation is training length. Our runs reached 12--20 steps of a 100-step annealing schedule (with a 10-step delay), so $\lambda$ never exceeded 0.10. Model capacity may also matter: at 4B parameters with rank-64 LoRA, the model may learn to reason well enough that advantage computation details are secondary to raw problem exposure. The task itself may be a factor: math problems with binary reward may not produce enough variation in planning-token surprisal for surprisal-based methods to differentiate themselves.
+The composable stack (separating episode-level from token-level, and within token-level separating surprisal cleaning from advantage boosting) is a useful abstraction regardless of whether SEPA ultimately outperforms HICRA. It enables systematic ablation of credit assignment components and clarifies what each mechanism does.
 
-**What would be needed.** A conclusive version of this experiment would require:
+#### Why the signal may be small
+
+The most likely explanation is training length. Our runs reached 12--20 steps of a 100-step annealing schedule (with a 10-step delay), so $\lambda$ never exceeded 0.10. Model capacity may also matter: at 4B parameters with rank-64 LoRA, the model may learn to reason well enough that advantage computation details are secondary to raw problem exposure. The task itself may be a factor: math problems with binary reward may not produce enough variation in planning-token surprisal for surprisal-based methods to differentiate themselves.
+
+#### What would be needed
+
+A conclusive version of this experiment would require:
 
 - ~8 seeds per condition (vs. 4).
 - ~100 steps per run (to let SEPA fully anneal).
@@ -319,7 +347,9 @@ We report this trajectory because the reframing was forced by the data, not cons
 
 We estimate this at ~800k--1M generations total, roughly 5--6× our current budget.
 
-**Automatic phase detection.** The adaptive $\lambda$ schedule connects to a broader observation: SEPA does not just clean the surprisal signal; it provides a *readout* of training phase via execution-token variance. When execution variance is high, the model has not yet consolidated procedures, and pooling would distort a still-evolving distribution. When execution variance drops, procedural skills are stable, and the remaining surprisal variation lives in planning tokens. The adaptive schedule closes the loop by using this readout to control the intervention, replacing an extrinsic step count with an intrinsic behavioral signal. At our training length, the variance estimate (via exponential moving average) was too noisy to evaluate this schedule. Testing whether it outperforms linear annealing, and whether it generalizes across tasks without re-tuning, requires the longer runs described above.
+#### Automatic phase detection
+
+The adaptive $\lambda$ schedule connects to a broader observation: SEPA does not just clean the surprisal signal; it provides a *readout* of training phase via execution-token variance. When execution variance is high, the model has not yet consolidated procedures, and pooling would distort a still-evolving distribution. When execution variance drops, procedural skills are stable, and the remaining surprisal variation lives in planning tokens. The adaptive schedule closes the loop by using this readout to control the intervention, replacing an extrinsic step count with an intrinsic behavioral signal. At our training length, the variance estimate (via exponential moving average) was too noisy to evaluate this schedule. Testing whether it outperforms linear annealing, and whether it generalizes across tasks without re-tuning, requires the longer runs described above.
 
 ## Limitations
 

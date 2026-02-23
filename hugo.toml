@@ -28,6 +28,9 @@ url = "/collections/"
 weight = 3
 
 
+[services.rss]
+limit = -1
+
 [markup]
   [markup.tableOfContents]
     startLevel = 2

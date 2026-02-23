@@ -34,10 +34,18 @@ Rearranged:
 
 ## notes
 
-**Remarkably general.** The law is distribution-free. It doesn't depend on arrival patterns, service time distributions, number of servers, or queue discipline (FIFO, LIFO, random). Any system in steady state.
+#### Remarkably general
 
-**Steady state is the real requirement.** The system must be stationary: the average arrival rate must equal the average departure rate over the observation window. Everything that enters must eventually leave. If work-in-progress accumulates unboundedly, the law doesn't apply.
+The law is distribution-free. It doesn't depend on arrival patterns, service time distributions, number of servers, or queue discipline (FIFO, LIFO, random). Any system in steady state.
 
-**Averages, not snapshots.** $L$, $\lambda$, and $W$ are all long-run time-averages. At any given instant, the relationship may not hold. This is where practitioners trip up — measuring over short windows where the system isn't in steady state.
+#### Steady state is the real requirement
 
-**Stronger than you'd think.** Little's original 1961 proof assumed stationarity and ergodicity. Stidham (1972) proved a purely deterministic version, showing the law is even more general than the original probabilistic assumptions suggested.
+The system must be stationary: the average arrival rate must equal the average departure rate over the observation window. Everything that enters must eventually leave. If work-in-progress accumulates unboundedly, the law doesn't apply.
+
+#### Averages, not snapshots
+
+$L$, $\lambda$, and $W$ are all long-run time-averages. At any given instant, the relationship may not hold. This is where practitioners trip up — measuring over short windows where the system isn't in steady state.
+
+#### Stronger than you'd think
+
+Little's original 1961 proof assumed stationarity and ergodicity. Stidham (1972) proved a purely deterministic version, showing the law is even more general than the original probabilistic assumptions suggested.

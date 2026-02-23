@@ -38,12 +38,22 @@ Below this intensity, performance is memory-bound. Above it, compute-bound.
 
 ## notes
 
-**It's a ceiling, not a prediction.** The roofline tells you the *maximum* attainable performance. Real code usually falls below because of instruction-level bottlenecks, cache misses, load imbalance, or poor vectorization. The gap between the roofline and your measured performance is where the optimization opportunity lives.
+#### It's a ceiling, not a prediction
 
-**Arithmetic intensity is per kernel, not per program.** Different loops in the same code can land in completely different parts of the plot. Profile each hot loop separately.
+The roofline tells you the *maximum* attainable performance. Real code usually falls below because of instruction-level bottlenecks, cache misses, load imbalance, or poor vectorization. The gap between the roofline and your measured performance is where the optimization opportunity lives.
 
-**The model extends.** You can add lower ceilings for missing optimizations — no SIMD, no ILP, no prefetching — creating a staircase of rooflines. Each step shows what you'd gain by enabling that optimization.
+#### Arithmetic intensity is per kernel, not per program
 
-**Bandwidth means DRAM bandwidth.** The peak bandwidth in the original model refers to main memory (DRAM), not cache. If your working set fits in L2, the effective bandwidth is much higher and the diagonal shifts left — but that's a different roofline for a different level of the hierarchy.
+Different loops in the same code can land in completely different parts of the plot. Profile each hot loop separately.
 
-**Especially relevant for GPUs and accelerators.** The roofline model became a standard diagnostic tool for GPU computing, where the gap between compute peak and memory bandwidth is enormous and arithmetic intensity determines everything.
+#### The model extends
+
+You can add lower ceilings for missing optimizations — no SIMD, no ILP, no prefetching — creating a staircase of rooflines. Each step shows what you'd gain by enabling that optimization.
+
+#### Bandwidth means DRAM bandwidth
+
+The peak bandwidth in the original model refers to main memory (DRAM), not cache. If your working set fits in L2, the effective bandwidth is much higher and the diagonal shifts left — but that's a different roofline for a different level of the hierarchy.
+
+#### Especially relevant for GPUs and accelerators
+
+The roofline model became a standard diagnostic tool for GPU computing, where the gap between compute peak and memory bandwidth is enormous and arithmetic intensity determines everything.

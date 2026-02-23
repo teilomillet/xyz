@@ -34,10 +34,18 @@ If 5% of your code is serial ($p = 0.95$), you will never exceed a 20x speedup. 
 
 ## notes
 
-**Fixed problem size.** Amdahl assumes the total workload stays the same regardless of processor count. You're asking: "given this exact job, how much faster can I finish it?" This makes the law inherently pessimistic about scaling.
+#### Fixed problem size
 
-**Gustafson's rebuttal (1988).** In practice, when you get more processors you solve *larger* problems, not the same one faster. Gustafson's law flips the framing: with $N$ processors, you tackle $N$-sized work. The two laws aren't contradictory — they model different scenarios.
+Amdahl assumes the total workload stays the same regardless of processor count. You're asking: "given this exact job, how much faster can I finish it?" This makes the law inherently pessimistic about scaling.
 
-**Ignores overhead.** The formula doesn't account for communication costs, synchronization, memory contention, or load imbalance. Real speedups are often worse than Amdahl predicts.
+#### Gustafson's rebuttal (1988)
 
-**The serial fraction isn't fixed.** A common mistake is treating $p$ as an architectural constant. In practice, the serial fraction depends on problem size, algorithm choice, and implementation.
+In practice, when you get more processors you solve *larger* problems, not the same one faster. Gustafson's law flips the framing: with $N$ processors, you tackle $N$-sized work. The two laws aren't contradictory — they model different scenarios.
+
+#### Ignores overhead
+
+The formula doesn't account for communication costs, synchronization, memory contention, or load imbalance. Real speedups are often worse than Amdahl predicts.
+
+#### The serial fraction isn't fixed
+
+A common mistake is treating $p$ as an architectural constant. In practice, the serial fraction depends on problem size, algorithm choice, and implementation.

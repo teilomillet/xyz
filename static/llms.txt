@@ -1,0 +1,23 @@
+# teïlo
+
+> Personal site of Teïlo Millet. Research and writing on large language models, reinforcement learning, alignment, and AI infrastructure.
+
+## Posts
+- [Prompting as Bayesian Inference](https://teilo.xyz/posts/prompting-as-bayesian-inference/): Reframing LLM interaction as steering an approximate Bayesian inference engine.
+- [La Mécanique du Prompt](https://teilo.xyz/posts/la-mecanique-du-prompt/): French narrative version of Bayesian prompting, told through characters Elena and David.
+- [Soft & Hard Alignment](https://teilo.xyz/posts/soft-and-hard-alignment/): The difference between optimizing for appearance and optimizing for intent.
+- [2026](https://teilo.xyz/posts/2026/): Scale up world, RLVR, and what happens when training loops run on large models.
+- [Répéter son savoir](https://teilo.xyz/posts/repeter-son-savoir/): On the difference between thinking and repeating. Narrative essay.
+- [SEPA](https://teilo.xyz/posts/sepa/): Compositional credit assignment framework for RL reasoning.
+
+## Collections
+- [Amdahl's Law](https://teilo.xyz/collections/amdahl/): The serial fraction sets a hard ceiling on parallel speedup.
+- [Little's Law](https://teilo.xyz/collections/little/): Items in a system equals arrival rate times time spent inside.
+- [Universal Scaling Law](https://teilo.xyz/collections/universal-scaling-law/): Extends Amdahl with a coherency penalty explaining retrograde throughput.
+- [Roofline Model](https://teilo.xyz/collections/roofline/): Attainable performance bounded by compute peak and memory bandwidth.
+
+## Open Source
+- [textpolicy](https://github.com/teilomillet/textpolicy): Reinforcement learning for text generation on Apple Silicon (MLX).
+- [enzu](https://github.com/teilomillet/enzu): Budget-controlled recursive language model execution in Python.
+- [gollm](https://github.com/teilomillet/gollm): Unified Go interface for LLM providers.
+- [raggo](https://github.com/teilomillet/raggo): Production-ready RAG library in Go.

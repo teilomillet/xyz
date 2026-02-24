@@ -37,7 +37,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body { overflow-x: hidden; max-width: 100vw; }
+html { overflow-x: clip; max-width: 100vw; }
 body {
   font-family: "Newsreader", Georgia, serif;
   font-size: 32px;
@@ -130,7 +130,6 @@ body.dark .sidebar a.past { color: #444; }
 body.dark .post-header time { color: #777; }
 
 /* Post content — 32px body, 38px h2, 32px h3 */
-.post-content { max-width: 100%; overflow-x: hidden; }
 .post-content p { margin-bottom: 1.4rem; }
 .post-content h2 { font-size: 46px; font-weight: 500; margin: 2.5rem 0 0.8rem; font-variation-settings: 'opsz' 28; }
 .post-content h3 { font-size: 38px; font-weight: 600; margin: 2rem 0 0.6rem; font-variation-settings: 'opsz' 28; }

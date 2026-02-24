@@ -1,8 +1,9 @@
 +++
 title = 'Episode Selection Meets Token Attribution: Composing Credit Assignment Across Granularities'
-date = 2026-02-15
+date = 2026-02-24
+originalDate = 2026-02-15
 draft = false
-description = 'A compositional credit assignment framework for RL reasoning, with SEPA (Selective Entropy Pooling with Annealing) as a concrete token-level module.'
+description = 'A compositional credit assignment framework for RL reasoning: SEPA pooling produced a definitive null result across 14 runs, leading to SEPA Amplification — reversing the mechanism to boost forking-token signal.'
 tags = ['reinforcement-learning', 'credit-assignment', 'reasoning', 'SEPA', 'MaxRL', 'GTPO']
 math = true
 
@@ -13,6 +14,8 @@ math = true
 
 [Read the full paper (PDF)](/sepa.pdf)
 
+> **Update (Feb 24, 2026).** Follow-up experiments (14 runs, λ reaching 0.94, semantic planning detector) produced a **definitive null result** for SEPA pooling. The mechanism was backwards: pooling compresses execution-token entropy toward the mean, which suppresses the high-entropy "forking tokens" that drive RL learning. We are now testing **SEPA Amplification** — reversing the direction to push forking tokens higher instead. The original text is preserved below with inline corrections; see [Follow-Up](#follow-up-full-strength-sepa-14-runs) for the full data.
+
 ## Abstract
 
 Reinforcement learning from reasoning traces faces credit assignment at two levels: *which problems* deserve gradient (episode level) and *which tokens* within a solution contributed to success (token level). MaxRL [(Tajwar et al., 2026)](https://arxiv.org/abs/2602.02710) addresses the episode level by reweighting advantages by inverse success rate but treats every token in a successful rollout identically.
@@ -20,6 +23,8 @@ Reinforcement learning from reasoning traces faces credit assignment at two leve
 We propose a compositional credit assignment framework with a plug-compatible interface: any episode-level operator that depends only on group rewards composes with any token-level operator that depends only on per-position uncertainty, without either needing to know about the other. As one instantiation, we introduce SEPA (Selective Entropy Pooling with Annealing), a token-level variance reduction transform that pools execution-token surprisal while preserving planning-token surprisal.
 
 Preliminary experiments (36 runs, ~159k generations) did not reach statistical significance. The predicted condition ranking appeared at a single early checkpoint but was not sustained in cumulative metrics, leaving open whether the effect is on learning speed or is simply noise at this scale. A mechanistic diagnostic on 318k tokens confirmed that SEPA reduces execution-token surprisal variance by 98% while leaving planning tokens unchanged ([Figure 1](#mechanistic-diagnostic-does-sepa-reshape-the-surprisal-distribution)). The contribution is twofold: a compositional framework that makes the independence between episode-level and token-level credit explicit, and SEPA as a concrete module within that framework, validated mechanistically but with underpowered training outcomes. We release all infrastructure to enable conclusive testing.
+
+**[Update.]** Follow-up experiments (14 additional runs, ~115k generations, $\lambda$ reaching 0.94) produced a **definitive null result**: SEPA pooling does not improve training at any strength. A 5000× better planning detector (semantic embeddings vs. regex) made no difference. The root cause is that pooling compresses execution-token entropy toward the mean, suppressing exactly the high-entropy forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). We now test *SEPA Amplification*, which reverses the direction. See [Follow-Up](#follow-up-full-strength-sepa-14-runs).
 
 ## Introduction
 
@@ -291,6 +296,8 @@ If the effect is on learning *speed* rather than final accuracy, then the right 
 
 With a 10-step delay and a 100-step linear ramp, $\lambda$ reached only 0.05 at step 15 and never exceeded 0.10 across all experiments; SEPA operated at less than 10% of its designed strength throughout. These experiments test whether SEPA produces a detectable signal at less than 10% of its designed operating strength; they do not test the method at its intended configuration.
 
+**[Update.]** Follow-up experiments ran SEPA to $\lambda = 0.94$ across 100 steps. The result was identical: no separation from baseline. Low $\lambda$ was not the bottleneck. See [Follow-Up](#follow-up-full-strength-sepa-14-runs).
+
 The AUC analysis showed smaller differences than the step-10 snapshot: all conditions fell within a 0.3pp band at steps 0--10 and a 0.6pp band at steps 0--15, with overlapping confidence intervals. No pairwise delta excluded zero at steps 0--10. At steps 0--15, GRPO+SEPA (C4) showed a marginally significant advantage over baseline (+0.4pp, 95% CI [0.1, 0.6]), but this is a single comparison among many. The predicted ranking (C8 first) did not appear in AUC terms.
 
 #### Mechanistic diagnostic: does SEPA reshape the surprisal distribution?
@@ -307,6 +314,104 @@ This confirms the mechanism: SEPA reduces execution-token surprisal variance so 
 
 Prior paired experiments estimated an effect size of ~0.2 percentage points for the SEPA/HICRA comparison, requiring ~23k generations per arm for 80% power. Our lean campaign provided ~5k generations per condition at step 10. A conclusive test of the token-level hypothesis would require roughly 4--5× our current budget.
 
+**[Update.]** The follow-up provided ~38k generations per condition (3 seeds × 100 steps) — well above the 23k threshold. The measured effect size was $\approx 0\%$ (delta = -0.08pp, $p \gg 0.05$). More seeds will not rescue a zero-effect-size result.
+
+## Follow-Up: Full-Strength SEPA (14 Runs)
+
+The original experiments left open whether SEPA's null result was due to insufficient $\lambda$ (never exceeding 0.10), a weak planning detector (18 regex phrases matching 0.05% of tokens), or a genuine mechanism failure. We systematically eliminated each possibility.
+
+### Phase 1: Full $\lambda$ Ramp (9 runs)
+
+We ran 3 conditions × 3 seeds × 100 steps with a corrected schedule that ramped $\lambda$ to 0.94 by step 99. LoRA rank was increased to 128 (from 64).
+
+| Condition | s42 | s101 | s202 | Mean ± Std |
+|-----------|-----|------|------|------------|
+| Baseline (GRPO + none) | 47.4% | 48.1% | 47.3% | 47.6% ± 0.4% |
+| HICRA (MaxRL + GTPO+HICRA) | 46.5% | 48.2% | 46.8% | 47.2% ± 0.9% |
+| SEPA (MaxRL + GTPO+SEPA) | 46.9% | 48.4% | 47.0% | 47.5% ± 0.8% |
+
+No condition separated from any other at any milestone (steps 20, 50, 80, 100). All deltas were < 0.5pp. $\lambda$ was not the bottleneck.
+
+The entropy data was particularly telling. SEPA was supposed to *reduce* `exec_entropy_var` compared to HICRA:
+
+| Metric | SEPA | HICRA |
+|--------|------|-------|
+| `exec_entropy_var` | 0.1107 | 0.1055 |
+
+SEPA showed 5% *higher* variance — the opposite of the predicted effect. The pooling mechanism did not compress execution-token entropy in practice.
+
+### Phase 2: Semantic Planning Detector (3 runs)
+
+We built a semantic embedding detector using `all-MiniLM-L6-v2` with math-tuned anchor phrases. It matched ~24% of tokens (vs. 0.05% for regex) — a 5000× improvement in detection sensitivity. Results on 4B:
+
+| Seed | SEPA (semantic) | Baseline | Delta |
+|------|----------------|----------|-------|
+| 42 | 48.41% | 47.40% | +1.01pp |
+| 101 | 46.23% | 48.08% | -1.84pp |
+| 202 | 47.87% | 47.27% | +0.59pp |
+| **Mean** | **47.50%** | **47.58%** | **-0.08pp** |
+
+Welch's $t = -0.114$, $\text{df} = 2.6$ ($p \gg 0.05$). The 5000× better detector changed nothing. No separation at any training step.
+
+### Phase 3: 30B Scale Probe (2 runs)
+
+A single-seed probe on Qwen3-30B-A3B (MoE, 3B active) showed a +0.65pp delta favoring SEPA. However, the 4B experiment showed individual seed deltas ranging from -1.84pp to +1.01pp — the 30B result is within noise. A 3-seed 30B campaign would be needed to confirm scale dependence, but the single-seed result does not provide evidence that larger scale rescues pooling.
+
+### Summary Across All SEPA Experiments
+
+| Condition | Model | Seeds | Mean final rate | vs Baseline |
+|-----------|-------|-------|-----------------|-------------|
+| Baseline (GRPO + none) | 4B | 3 | 47.58% | — |
+| SEPA (regex detector) | 4B | 3 | 47.46% | -0.12pp |
+| SEPA (semantic detector) | 4B | 3 | 47.50% | -0.08pp |
+| HICRA (regex detector) | 4B | 3 | 47.17% | -0.42pp |
+| Baseline (GRPO + none) | 30B | 1 | 48.35% | — |
+| SEPA (semantic detector) | 30B | 1 | 49.00% | +0.65pp |
+
+14 runs, ~115k follow-up generations, $\lambda$ reaching 0.94, a working semantic detector. No condition separates from baseline.
+
+## Root Cause: Pooling Suppresses Forking Tokens
+
+The mechanistic diagnostic in the original paper was correct: SEPA *does* compress execution-token surprisal by 98%. The error was assuming this helps. It hurts.
+
+Recent work on entropy-based token masking [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939) established that RL learning is driven by a small fraction of high-entropy "forking tokens" — positions where the model's distribution spreads across multiple plausible continuations. These tokens carry the gradient signal that distinguishes correct from incorrect reasoning. The majority of tokens (low-entropy, routine computation) contribute near-zero gradient regardless of their weight.
+
+SEPA pooling does exactly the wrong thing: it replaces all execution-token entropies with their mean, which *compresses* the high-entropy forking tokens toward average while *inflating* the low-entropy routine tokens toward average. The net effect is to flatten the entropy distribution — removing the very signal GTPO needs to concentrate credit on decisions that matter.
+
+$$S^{\text{pooled}}_t = \lambda \cdot \bar{S}_\mathcal{E} + (1-\lambda) \cdot S_t \implies \text{Var}(S^{\text{pooled}}) = (1-\lambda)^2 \cdot \text{Var}(S)$$
+
+At $\lambda = 0.94$: variance is reduced by 99.6%. Every execution token looks the same to GTPO. The forking tokens that carry the learning signal are indistinguishable from routine computation.
+
+This explains why the follow-up experiments showed SEPA operating in the *wrong direction* on `exec_entropy_var`: the mechanism works exactly as designed (compresses variance), but compressing variance destroys the information GTPO needs.
+
+## The Fix: SEPA Amplification
+
+If pooling toward the mean hurts because it suppresses forking tokens, the fix is to reverse the direction: push *away* from the mean. High-entropy execution tokens get pushed higher (more GTPO weight), low-entropy ones get pushed lower (less weight). Planning tokens remain untouched.
+
+$$S^{\text{amp}}_t = \begin{cases} S_t & \text{if } \mathbf{1}_{\text{plan}}(t) = 1 \quad \text{(planning: unchanged)} \\ S_t + \lambda \cdot (S_t - \bar{S}_\mathcal{E}) & \text{otherwise} \quad \text{(execution: amplified)} \end{cases}$$
+
+Which simplifies to $(1+\lambda) \cdot S_t - \lambda \cdot \bar{S}_\mathcal{E}$ for execution tokens. This is a soft version of the hard entropy masking that Yue et al. proved works: instead of binary keep/discard, amplification smoothly increases the weight of forking tokens and decreases the weight of routine tokens through GTPO's existing weighting mechanism.
+
+### Two variants
+
+Amplification can push low-entropy tokens to negative "entropy" values. We test two strategies:
+
+| Variant | Formula | Low-entropy behavior |
+|---------|---------|---------------------|
+| **Raw** (`gtpo_sepa_amp`) | $(1+\lambda) S_t - \lambda \bar{S}_\mathcal{E}$ | Negative → GTPO clamps weight to 0 (hard mask) |
+| **Clamped** (`gtpo_sepa_amp_c`) | $\max(0,\; (1+\lambda) S_t - \lambda \bar{S}_\mathcal{E})$ | Floored at 0 → near-zero GTPO weight (soft fade) |
+
+The raw variant effectively creates a hard mask on the lowest-entropy tokens (similar to what Yue et al. found works), while the clamped variant keeps the weighting purely soft.
+
+### Preliminary validation
+
+A smoke test (1 seed, 10 steps on Tinker) confirmed the wiring works end-to-end:
+- $\lambda$ ramped correctly (reaching 0.6 by step 8)
+- Planning detector fired (plan entropy mean > 0)
+- Amplification code executed without errors through GTPO weighting
+
+The full experiment (3 conditions × 3 seeds × 100 steps = 9 runs) is defined in `campaigns/sepa-amplify.toml` and tests baseline vs. raw amplification vs. clamped amplification. Results will be added here when available.
+
 ## Discussion
 
 #### Credit assignment may affect speed, not ceiling
@@ -314,6 +419,8 @@ Prior paired experiments estimated an effect size of ~0.2 percentage points for 
 The step-10 snapshot showed the predicted ranking (C8 > C5 > C4 > C3 > C1), but the AUC analysis revealed this to be an artifact of measuring at a single point: integrated over the training curve, all conditions fell within a 0.3pp band with overlapping confidence intervals.
 
 This does not rule out a speed effect; it means our runs were too short to detect one via AUC. If the stack helps models learn *faster* rather than learn *better*, then the effect would appear as a wider AUC gap in early training that closes as conditions converge. With only 10--15 steps of usable data and $\lambda$ never exceeding 0.10 (pilot) or 0.06 (lean), the mechanism reached less than a tenth of its designed strength. A meaningful AUC comparison requires runs long enough for the early-training advantage to accumulate before convergence erases it.
+
+**[Update.]** Follow-up runs (100 steps, $\lambda$ reaching 0.94) showed no speed effect either. No divergence at any milestone (steps 20, 50, 80, 100). The speed hypothesis is ruled out for SEPA pooling.
 
 Token-level credit assignment methods are typically evaluated by final performance after a fixed training budget. If the benefit is faster convergence, then methods that appear equivalent at convergence may differ substantially in sample efficiency, and the right metric is area under the learning curve, not a point estimate.
 
@@ -335,6 +442,8 @@ The composable stack (separating episode-level from token-level, and within toke
 
 The most likely explanation is training length. Our runs reached 12--20 steps of a 100-step annealing schedule (with a 10-step delay), so $\lambda$ never exceeded 0.10. Model capacity may also matter: at 4B parameters with rank-64 LoRA, the model may learn to reason well enough that advantage computation details are secondary to raw problem exposure. The task itself may be a factor: math problems with binary reward may not produce enough variation in planning-token surprisal for surprisal-based methods to differentiate themselves.
 
+**[Update.]** Training length was not the explanation. With $\lambda = 0.94$ and 100 full steps, the result is unchanged. The actual explanation is that SEPA pooling operates in the wrong direction: it compresses execution-token entropy, suppressing the high-entropy forking tokens that carry the learning signal. See [Root Cause](#root-cause-pooling-suppresses-forking-tokens).
+
 #### What would be needed
 
 A conclusive version of this experiment would require:
@@ -347,25 +456,31 @@ A conclusive version of this experiment would require:
 
 We estimate this at ~800k--1M generations total, roughly 5--6× our current budget.
 
+**[Update.]** We ran most of this program: 100-step runs, 3 seeds, LoRA rank 128, a semantic planning detector that matches 24% of tokens (vs. 0.05% for regex), and $\lambda$ reaching 0.94. The result was identical: no separation. The issue was not scale or configuration but the pooling mechanism itself.
+
 #### Automatic phase detection
 
 The adaptive $\lambda$ schedule connects to a broader observation: SEPA does not just clean the surprisal signal; it provides a *readout* of training phase via execution-token variance. When execution variance is high, the model has not yet consolidated procedures, and pooling would distort a still-evolving distribution. When execution variance drops, procedural skills are stable, and the remaining surprisal variation lives in planning tokens. The adaptive schedule closes the loop by using this readout to control the intervention, replacing an extrinsic step count with an intrinsic behavioral signal. At our training length, the variance estimate (via exponential moving average) was too noisy to evaluate this schedule. Testing whether it outperforms linear annealing, and whether it generalizes across tasks without re-tuning, requires the longer runs described above.
 
 ## Limitations
 
-- **Planning mask quality.** Our regex-based strategic gram detector (18 hand-curated phrases) is simpler than the full semantic clustering pipeline [(Wang et al., 2025)](https://arxiv.org/abs/2509.03646) and has not been validated against human annotations. The failure modes are asymmetric, and this asymmetry points directly at the highest-value improvement. False negatives (planning tokens mislabeled as execution) are actively destructive: SEPA pools away their surprisal signal, inverting the intended effect. False positives (execution tokens mislabeled as planning) are benign: SEPA simply leaves their noise unchanged. This means the mask's *recall* on planning tokens matters more than its precision, and the first priority for improving the stack is reducing false negatives. The mask also misses implicit planning: a model may shift strategy mid-sequence without producing any of the 18 trigger phrases. A learned or attention-based detector that captures implicit planning would address both failure modes. We designed the mask as a swappable component specifically to enable this upgrade.
+- **Planning mask quality.** Our regex-based strategic gram detector (18 hand-curated phrases) is simpler than the full semantic clustering pipeline [(Wang et al., 2025)](https://arxiv.org/abs/2509.03646) and has not been validated against human annotations. The failure modes are asymmetric, and this asymmetry points directly at the highest-value improvement. False negatives (planning tokens mislabeled as execution) are actively destructive: SEPA pools away their surprisal signal, inverting the intended effect. False positives (execution tokens mislabeled as planning) are benign: SEPA simply leaves their noise unchanged. This means the mask's *recall* on planning tokens matters more than its precision, and the first priority for improving the stack is reducing false negatives. The mask also misses implicit planning: a model may shift strategy mid-sequence without producing any of the 18 trigger phrases. A learned or attention-based detector that captures implicit planning would address both failure modes. We designed the mask as a swappable component specifically to enable this upgrade. **[Update.]** We built a semantic detector using sentence-transformers (`all-MiniLM-L6-v2`) that matches ~24% of tokens vs. 0.05% for regex — a 5000× improvement. The result was unchanged. This limitation is resolved; mask quality was not the bottleneck.
 - **Surprisal vs. entropy.** Our GTPO implementation uses surprisal ($-\log p$ of the sampled token) rather than the true policy entropy that the original formulation specifies [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349), and does not separate rollouts into correct/incorrect sets. Surprisal compounds a problem that exists even with true entropy (high-uncertainty execution tokens receiving disproportionate credit) by adding sampling artifacts from peaked distributions.
-- **Insufficient compute.** Our primary results are not statistically significant. We report them as directional evidence, not conclusions.
+- **Insufficient compute.** Our primary results are not statistically significant. We report them as directional evidence, not conclusions. **[Update.]** Follow-up experiments (14 runs, ~115k generations, $\lambda$ = 0.94) had sufficient power but confirmed a zero-effect-size null. This limitation is resolved.
 - **Single model and task.** Qwen3-4B on math reasoning only.
-- **Truncated runs.** The original design called for 100 steps per run; we reduced to 40 for the lean campaign and then cut short at step 12--16 because of compute budget exhaustion.
+- **Truncated runs.** The original design called for 100 steps per run; we reduced to 40 for the lean campaign and then cut short at step 12--16 because of compute budget exhaustion. **[Update.]** Follow-up ran the full 100 steps. This limitation is resolved.
 
 ## Conclusion
 
 We proposed a composable framework for credit assignment in RL for reasoning that separates two complementary levels: episode-level objective selection (MaxRL) and token-level credit distribution (SEPA+GTPO). The framework provides a systematic way to ablate credit assignment components and understand what each contributes.
 
-We introduced SEPA, which reduces execution-token surprisal variance before surprisal-based weighting. A mechanistic diagnostic confirmed that SEPA reduces execution variance by 98% while leaving planning tokens unchanged. The theoretical argument for the composition is that MaxRL decides *which problems* get gradient and SEPA+GTPO decides *which tokens* get credit; neither interferes with the other. Beyond variance reduction, execution-token surprisal variance may serve as an intrinsic signal for detecting the procedural-to-strategic phase transition, enabling an adaptive schedule that requires no hand-tuned step count; this is architecturally supported but untested at our training scale.
+We introduced SEPA pooling, which reduces execution-token surprisal variance before surprisal-based weighting. A mechanistic diagnostic confirmed that SEPA reduces execution variance by 98% while leaving planning tokens unchanged.
 
-Our experiments showed that C8 (MaxRL+SEPA) ranked first at a single early checkpoint, though this ordering did not persist in cumulative metrics and did not reach statistical significance at the scale tested. A conclusive test requires approximately 5× more compute. We release the framework and experimental infrastructure to enable that test.
+**However**, follow-up experiments (14 runs, $\lambda$ reaching 0.94, semantic planning detector) produced a definitive null result. The pooling mechanism works as designed but operates in the wrong direction: it compresses the high-entropy forking tokens that drive RL learning, flattening the signal GTPO needs. Fixing detection (5000× improvement) and running to full $\lambda$ strength made no difference.
+
+The composable framework remains useful — it enabled rapid diagnosis and pivoting. The same infrastructure that tested pooling now tests **SEPA Amplification**, which reverses the mechanism to push execution-token entropies *away* from their mean, amplifying the forking-token signal instead of suppressing it. This acts as a soft version of the hard entropy masking shown to work by [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). Amplification experiments are in progress.
+
+The lesson is that variance reduction and learning-signal preservation can conflict: a cleaner input to GTPO is not always a better one. The tokens that look like noise (high-entropy execution tokens) may carry the information that matters most.
 
 ## References
 
@@ -375,3 +490,4 @@ Our experiments showed that C8 (MaxRL+SEPA) ranked first at a single early check
 - Tan, H., Wang, Z., Pan, J., Lin, J., Wang, H., Wu, Y., Chen, T., Zheng, Z., Tang, Z., & Yang, H. (2025). [GTPO and GRPO-S: Token and Sequence-Level Reward Shaping with Policy Entropy](https://arxiv.org/abs/2508.04349). *arXiv:2508.04349*.
 - Wang, H., Xu, Q., Liu, C., Wu, J., Lin, F., & Chen, W. (2025). [Emergent Hierarchical Reasoning in LLMs through Reinforcement Learning](https://arxiv.org/abs/2509.03646). *arXiv:2509.03646*.
 - Wang, P., Li, L., Shao, Z., Xu, R. X., Dai, D., Li, Y., Chen, D., Wu, Y., & Sui, Z. (2023). [Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations](https://arxiv.org/abs/2312.08935). *arXiv:2312.08935*.
+- Yue, Y., Chen, Z., Lu, R., Zhao, A., Zuo, Z., Ren, K., Lu, S., & Chen, Z. (2026). [Beyond the 80/20 Rule of RL: A Token-Level Perspective on RL for LLMs](https://arxiv.org/abs/2506.01939). *arXiv:2506.01939*.

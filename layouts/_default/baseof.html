@@ -72,6 +72,16 @@ else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').mat
     if(!e.target.closest('.fn-popover'))close()
   })
 })()
+;(function(){
+  var key='pos:'+location.pathname
+  var saved=localStorage.getItem(key)
+  if(saved){var y=parseInt(saved,10);if(y>0)window.scrollTo(0,y)}
+  var timer
+  window.addEventListener('scroll',function(){
+    clearTimeout(timer)
+    timer=setTimeout(function(){localStorage.setItem(key,window.scrollY)},300)
+  })
+})()
   </script>
 </body>
 </html>

@@ -130,6 +130,7 @@ body.dark .sidebar a.past { color: #444; }
 body.dark .post-header time { color: #777; }
 
 /* Post content — 32px body, 38px h2, 32px h3 */
+.post-content { max-width: 100%; overflow-x: hidden; }
 .post-content p { margin-bottom: 1.4rem; }
 .post-content h2 { font-size: 46px; font-weight: 500; margin: 2.5rem 0 0.8rem; font-variation-settings: 'opsz' 28; }
 .post-content h3 { font-size: 38px; font-weight: 600; margin: 2rem 0 0.6rem; font-variation-settings: 'opsz' 28; }
@@ -163,8 +164,10 @@ body.dark .post-content code { background: #222; }
 body.dark .post-content pre { background: #111; }
 .post-content pre code { background: none; padding: 0; font-size: inherit; }
 .post-content img { max-width: 100%; height: auto; }
-.post-content .katex-display { overflow-x: auto; overflow-y: hidden; }
-.post-content mjx-container { overflow-x: auto; overflow-y: hidden; }
+.post-content figure { max-width: 100%; overflow-x: auto; }
+.post-content .katex-display { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+.post-content .katex { overflow-x: auto; overflow-y: hidden; display: inline-block; max-width: 100%; }
+.post-content mjx-container { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
 .post-content strong { font-weight: 700; }
 
 /* Home — 55px h1 */

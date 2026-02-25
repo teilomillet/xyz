@@ -1,9 +1,9 @@
 +++
 title = 'Episode Selection Meets Token Attribution: Composing Credit Assignment Across Granularities'
-date = 2026-02-24
+date = 2026-02-25
 originalDate = 2026-02-15
 draft = false
-description = 'A compositional credit assignment framework for RL reasoning: SEPA pooling produced a definitive null result across 14 runs, leading to SEPA Amplification — reversing the mechanism to boost forking-token signal.'
+description = 'A compositional credit assignment framework for RL reasoning: SEPA pooling produced a definitive null result across 14 runs. SEPA Amplification — reversing the mechanism — also shows no separation from baseline across 6 runs, confirming that token-level surprisal reshaping does not improve training at this scale.'
 tags = ['reinforcement-learning', 'credit-assignment', 'reasoning', 'SEPA', 'MaxRL', 'GTPO']
 math = true
 
@@ -14,7 +14,9 @@ math = true
 
 [Read the full paper (PDF)](/sepa.pdf)
 
-> **Update (Feb 24, 2026).** Follow-up experiments (14 runs, λ reaching 0.94, semantic planning detector) produced a **definitive null result** for SEPA pooling. The mechanism was backwards: pooling compresses execution-token entropy toward the mean, which suppresses the high-entropy "forking tokens" that drive RL learning. We are now testing **SEPA Amplification** — reversing the direction to push forking tokens higher instead. The original text is preserved below with inline corrections; see [Follow-Up](#follow-up-full-strength-sepa-14-runs) for the full data.
+> **Update (Feb 25, 2026).** SEPA Amplification results are in: **another null result**. Reversing the pooling direction (pushing execution-token entropies *away* from the mean instead of toward it) produces no separation from baseline across 6 runs (2 variants × 3 seeds × 100 steps). Raw amplification: 47.7% vs. baseline 47.6% (+0.1pp); clamped amplification: 47.0% (-0.6pp). The semantic detector successfully separates plan/exec entropy (68% gap), but reshaping the surprisal signal — in either direction — does not improve training at this scale. See [Amplification Results](#sepa-amplification-results).
+>
+> **Update (Feb 24, 2026).** Follow-up experiments (14 runs, λ reaching 0.94, semantic planning detector) produced a **definitive null result** for SEPA pooling. The mechanism was backwards: pooling compresses execution-token entropy toward the mean, which suppresses the high-entropy "forking tokens" that drive RL learning. The original text is preserved below with inline corrections; see [Follow-Up](#follow-up-full-strength-sepa-14-runs) for the full data.
 
 ## Abstract
 
@@ -24,7 +26,7 @@ We propose a compositional credit assignment framework with a plug-compatible in
 
 Preliminary experiments (36 runs, ~159k generations) did not reach statistical significance. The predicted condition ranking appeared at a single early checkpoint but was not sustained in cumulative metrics, leaving open whether the effect is on learning speed or is simply noise at this scale. A mechanistic diagnostic on 318k tokens confirmed that SEPA reduces execution-token surprisal variance by 98% while leaving planning tokens unchanged ([Figure 1](#mechanistic-diagnostic-does-sepa-reshape-the-surprisal-distribution)). The contribution is twofold: a compositional framework that makes the independence between episode-level and token-level credit explicit, and SEPA as a concrete module within that framework, validated mechanistically but with underpowered training outcomes. We release all infrastructure to enable conclusive testing.
 
-**[Update.]** Follow-up experiments (14 additional runs, ~115k generations, $\lambda$ reaching 0.94) produced a **definitive null result**: SEPA pooling does not improve training at any strength. A 5000× better planning detector (semantic embeddings vs. regex) made no difference. The root cause is that pooling compresses execution-token entropy toward the mean, suppressing exactly the high-entropy forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). We now test *SEPA Amplification*, which reverses the direction. See [Follow-Up](#follow-up-full-strength-sepa-14-runs).
+**[Update.]** Follow-up experiments (14 additional runs, ~115k generations, $\lambda$ reaching 0.94) produced a **definitive null result**: SEPA pooling does not improve training at any strength. A 5000× better planning detector (semantic embeddings vs. regex) made no difference. The root cause is that pooling compresses execution-token entropy toward the mean, suppressing exactly the high-entropy forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). **[Update 2.]** SEPA Amplification (reversing the direction) also produces no separation: +0.1pp for raw amplification, -0.6pp for clamped, across 6 runs. See [Amplification Results](#sepa-amplification-results).
 
 ## Introduction
 
@@ -362,13 +364,15 @@ A single-seed probe on Qwen3-30B-A3B (MoE, 3B active) showed a +0.65pp delta fav
 | Condition | Model | Seeds | Mean final rate | vs Baseline |
 |-----------|-------|-------|-----------------|-------------|
 | Baseline (GRPO + none) | 4B | 3 | 47.58% | — |
-| SEPA (regex detector) | 4B | 3 | 47.46% | -0.12pp |
-| SEPA (semantic detector) | 4B | 3 | 47.50% | -0.08pp |
+| SEPA pooling (regex detector) | 4B | 3 | 47.46% | -0.12pp |
+| SEPA pooling (semantic detector) | 4B | 3 | 47.50% | -0.08pp |
 | HICRA (regex detector) | 4B | 3 | 47.17% | -0.42pp |
+| **SEPA amplification (raw)** | **4B** | **3** | **47.7%** | **+0.1pp** |
+| **SEPA amplification (clamped)** | **4B** | **3** | **47.0%** | **-0.6pp** |
 | Baseline (GRPO + none) | 30B | 1 | 48.35% | — |
-| SEPA (semantic detector) | 30B | 1 | 49.00% | +0.65pp |
+| SEPA pooling (semantic detector) | 30B | 1 | 49.00% | +0.65pp |
 
-14 runs, ~115k follow-up generations, $\lambda$ reaching 0.94, a working semantic detector. No condition separates from baseline.
+20 runs total (~230k generations), $\lambda$ reaching 0.94, semantic planning detector. Neither pooling nor amplification separates from baseline. The surprisal-reshaping approach — in both directions — produces a null result at 4B scale.
 
 ## Root Cause: Pooling Suppresses Forking Tokens
 
@@ -403,14 +407,48 @@ Amplification can push low-entropy tokens to negative "entropy" values. We test 
 
 The raw variant effectively creates a hard mask on the lowest-entropy tokens (similar to what Yue et al. found works), while the clamped variant keeps the weighting purely soft.
 
-### Preliminary validation
+## SEPA Amplification Results
 
-A smoke test (1 seed, 10 steps on Tinker) confirmed the wiring works end-to-end:
-- $\lambda$ ramped correctly (reaching 0.6 by step 8)
-- Planning detector fired (plan entropy mean > 0)
-- Amplification code executed without errors through GTPO weighting
+We ran the full amplification experiment: 2 conditions × 3 seeds × 100 steps = 6 runs, using MaxRL episode-level advantages, semantic planning detector (`all-MiniLM-L6-v2`), LoRA rank 128, and $\lambda$ ramping linearly to 0.94 over 100 steps with a 5-step delay. The baseline (`grpo+none`, 3 seeds) was taken from the prior campaign.
 
-The full experiment (3 conditions × 3 seeds × 100 steps = 9 runs) is defined in `campaigns/sepa-amplify.toml` and tests baseline vs. raw amplification vs. clamped amplification. Results will be added here when available.
+### Results
+
+| Condition | s42 | s101 | s202 | Mean ± Std |
+|-----------|-----|------|------|------------|
+| Baseline (GRPO + none) | 47.4% | 48.1% | 47.4% | 47.6% ± 0.3% |
+| Raw amplification (`sepa_amp`) | 47.8% | 47.1% | 48.2% | 47.7% ± 0.5% |
+| Clamped amplification (`sepa_amp_c`) | 46.5% | 47.7% | 46.8% | 47.0% ± 0.5% |
+
+| Variant | Delta vs baseline |
+|---------|------------------|
+| `sepa_amp` (raw) | +0.1pp (neutral) |
+| `sepa_amp_c` (clamped) | -0.6pp (slight regression) |
+
+No condition separated from baseline at any training milestone.
+
+### Entropy separation
+
+The semantic detector successfully partitions plan vs. execution entropy. Averaged over the last 20 steps of each run:
+
+| Metric | `sepa_amp` | `sepa_amp_c` |
+|--------|-----------|-------------|
+| Plan entropy (mean) | 0.238 | 0.250 |
+| Exec entropy (mean) | 0.076 | 0.081 |
+| Gap (plan − exec) | +0.162 | +0.169 |
+
+Planning tokens have ~68% higher entropy than execution tokens, confirming the detector works and SEPA amplification operates on a real structural distinction. But this distinction does not translate into a training signal.
+
+### Interpretation
+
+Amplification is the mirror image of pooling: instead of compressing execution-token entropy toward the mean, it pushes entropy *away* from the mean, amplifying forking tokens and suppressing routine ones. This is a soft version of the hard entropy masking that Yue et al. [(2026)](https://arxiv.org/abs/2506.01939) showed works.
+
+The null result suggests the issue is not the *direction* of the transform (compress vs. amplify) but the *target*: reshaping the surprisal signal fed to GTPO does not produce a measurable training improvement at 4B scale / 100 steps, regardless of direction. Three possible explanations:
+
+1. **GTPO itself may not benefit from surprisal reshaping.** Our implementation uses surprisal (not true entropy) with a simplified weighting scheme. The noisier signal may swamp any benefit from better structuring.
+2. **The planning/execution distinction may not align with the forking-token distinction.** Yue et al.'s forking tokens are defined by entropy magnitude regardless of semantic role. A planning token can have low entropy (confident strategy); an execution token can have high entropy (genuine fork). SEPA's structural mask may be orthogonal to the actual signal.
+3. **The effect may require longer training or harder tasks.** At 100 steps with 47% baseline accuracy, the model may not be in a regime where token-level credit refinement matters.
+
+The clamped variant (`sepa_amp_c`) slightly underperforms, suggesting that flooring execution entropy at zero (effectively zeroing out GTPO weight for low-entropy execution tokens) is mildly harmful — consistent with the idea that even low-entropy tokens carry some useful gradient signal.
 
 ## Discussion
 
@@ -478,9 +516,9 @@ We introduced SEPA pooling, which reduces execution-token surprisal variance bef
 
 **However**, follow-up experiments (14 runs, $\lambda$ reaching 0.94, semantic planning detector) produced a definitive null result. The pooling mechanism works as designed but operates in the wrong direction: it compresses the high-entropy forking tokens that drive RL learning, flattening the signal GTPO needs. Fixing detection (5000× improvement) and running to full $\lambda$ strength made no difference.
 
-The composable framework remains useful — it enabled rapid diagnosis and pivoting. The same infrastructure that tested pooling now tests **SEPA Amplification**, which reverses the mechanism to push execution-token entropies *away* from their mean, amplifying the forking-token signal instead of suppressing it. This acts as a soft version of the hard entropy masking shown to work by [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). Amplification experiments are in progress.
+The composable framework remains useful — it enabled rapid diagnosis and pivoting. **SEPA Amplification** (reversing the mechanism to push execution-token entropies *away* from their mean) also produced a null result: +0.1pp for raw amplification, -0.6pp for clamped, across 6 additional runs. Reshaping the surprisal signal fed to GTPO — whether by compressing variance (pooling) or expanding it (amplification) — does not improve training at 4B scale.
 
-The lesson is that variance reduction and learning-signal preservation can conflict: a cleaner input to GTPO is not always a better one. The tokens that look like noise (high-entropy execution tokens) may carry the information that matters most.
+The lesson is broader than the direction of the transform: token-level surprisal reshaping via structural masks may be orthogonal to the actual learning signal. The forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939) are defined by entropy magnitude, not by whether they belong to planning or execution spans. A planning token can be low-entropy (confident strategy), and an execution token can be high-entropy (genuine decision fork). SEPA's structural partition may simply not align with the gradient-relevant partition.
 
 ## References
 

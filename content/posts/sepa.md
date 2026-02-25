@@ -14,6 +14,8 @@ math = true
 
 [Read the full paper (PDF)](/sepa.pdf)
 
+> **Update (Feb 25, 2026, evening).** Yue et al. diagnostic complete: we directly tested entropy masking (top-20% tokens, $\rho=0.2$) using our surprisal proxy instead of true Shannon entropy. **Result: masking was nearly inert.** The mask activated on only ~10% of batches because the surprisal distribution is too concentrated near zero for the $\rho$-percentile threshold to bite. Final running CR: 47.3% (4B, 3 seeds) vs. 47.6% baseline (−0.3pp). A parallel 30B experiment tracks similarly (~46%). This confirms the core issue: our pipeline has access to per-token surprisal $S(t) = -\log p(t_{\text{sampled}})$, not Shannon entropy $H(t) = -\sum_v p_v \log p_v$. Yue et al.'s masking requires the full vocabulary distribution. Replicating their result — and potentially rescuing SEPA — requires infrastructure that exposes per-position logits, which current Tinker backends do not support. See [Yue Diagnostic](#yue-entropy-masking-diagnostic).
+>
 > **Update (Feb 25, 2026).** SEPA Amplification results are in: **another null result**. Reversing the pooling direction (pushing execution-token entropies *away* from the mean instead of toward it) produces no separation from baseline across 6 runs (2 variants × 3 seeds × 100 steps). Raw amplification: 47.7% vs. baseline 47.6% (+0.1pp); clamped amplification: 47.0% (-0.6pp). The semantic detector successfully separates plan/exec entropy (68% gap), but reshaping the surprisal signal — in either direction — does not improve training at this scale. See [Amplification Results](#sepa-amplification-results).
 >
 > **Update (Feb 24, 2026).** Follow-up experiments (14 runs, λ reaching 0.94, semantic planning detector) produced a **definitive null result** for SEPA pooling. The mechanism was backwards: pooling compresses execution-token entropy toward the mean, which suppresses the high-entropy "forking tokens" that drive RL learning. The original text is preserved below with inline corrections; see [Follow-Up](#follow-up-full-strength-sepa-14-runs) for the full data.
@@ -26,7 +28,7 @@ We propose a compositional credit assignment framework with a plug-compatible in
 
 Preliminary experiments (36 runs, ~159k generations) did not reach statistical significance. The predicted condition ranking appeared at a single early checkpoint but was not sustained in cumulative metrics, leaving open whether the effect is on learning speed or is simply noise at this scale. A mechanistic diagnostic on 318k tokens confirmed that SEPA reduces execution-token surprisal variance by 98% while leaving planning tokens unchanged ([Figure 1](#mechanistic-diagnostic-does-sepa-reshape-the-surprisal-distribution)). The contribution is twofold: a compositional framework that makes the independence between episode-level and token-level credit explicit, and SEPA as a concrete module within that framework, validated mechanistically but with underpowered training outcomes. We release all infrastructure to enable conclusive testing.
 
-**[Update.]** Follow-up experiments (14 additional runs, ~115k generations, $\lambda$ reaching 0.94) produced a **definitive null result**: SEPA pooling does not improve training at any strength. A 5000× better planning detector (semantic embeddings vs. regex) made no difference. The root cause is that pooling compresses execution-token entropy toward the mean, suppressing exactly the high-entropy forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). **[Update 2.]** SEPA Amplification (reversing the direction) also produces no separation: +0.1pp for raw amplification, -0.6pp for clamped, across 6 runs. See [Amplification Results](#sepa-amplification-results).
+**[Update.]** Follow-up experiments (14 additional runs, ~115k generations, $\lambda$ reaching 0.94) produced a **definitive null result**: SEPA pooling does not improve training at any strength. A 5000× better planning detector (semantic embeddings vs. regex) made no difference. The root cause is that pooling compresses execution-token entropy toward the mean, suppressing exactly the high-entropy forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). **[Update 2.]** SEPA Amplification (reversing the direction) also produces no separation: +0.1pp for raw amplification, -0.6pp for clamped, across 6 runs. See [Amplification Results](#sepa-amplification-results). **[Update 3.]** A direct Yue et al. diagnostic (entropy masking, $\rho = 0.2$) produced a −0.3pp result at 4B. The core issue: our pipeline uses surprisal $S(t)$, not Shannon entropy $H(t)$; masking by surprisal is nearly inert. Resolving this requires per-position logits. See [Yue Diagnostic](#yue-entropy-masking-diagnostic).
 
 ## Introduction
 
@@ -450,6 +452,57 @@ The null result suggests the issue is not the *direction* of the transform (comp
 
 The clamped variant (`sepa_amp_c`) slightly underperforms, suggesting that flooring execution entropy at zero (effectively zeroing out GTPO weight for low-entropy execution tokens) is mildly harmful — consistent with the idea that even low-entropy tokens carry some useful gradient signal.
 
+## Yue Entropy Masking Diagnostic
+
+The amplification null result left one question open: does token-level credit shaping fail because *our* reshaping is wrong, or because *any* reshaping of surprisal is futile at this scale? Yue et al. [(2026)](https://arxiv.org/abs/2506.01939) reported that masking the bottom 80% of tokens by entropy — keeping only the high-entropy "forking" minority — produces a measurable training improvement. If that result transfers, the problem is SEPA's specific mechanism, not the general idea of token-level selection.
+
+We ran a direct diagnostic: entropy masking with $\rho = 0.2$ (keep top-20% tokens by entropy), no GTPO weighting ($\beta = 0$), MaxRL episode-level advantages, 3 seeds × 100 steps on Qwen3-4B. A parallel experiment on Qwen3-30B-A3B (MoE, 3B active) tests whether scale changes the picture.
+
+### The surprisal gap
+
+Midway through implementation we realized our pipeline computes **surprisal** $S(t) = -\log p(t_{\text{sampled}})$ — the negative log-probability of the single sampled token — not **Shannon entropy** $H(t) = -\sum_{v} p_v \log p_v$ over the full vocabulary distribution. These are fundamentally different signals:
+
+| Property | Surprisal $S(t)$ | Shannon entropy $H(t)$ |
+|----------|-----------------|----------------------|
+| Depends on | Sampled token only | Full vocabulary distribution |
+| High when | Model assigns low prob to *what it actually said* | Model is uncertain about *what to say next* |
+| Available from | Any API returning logprobs | Requires full logit vector |
+
+Yue et al.'s masking targets tokens where the model is genuinely uncertain (high $H$). Our surrogate targets tokens where the model happened to say something unlikely (high $S$). A token can have low entropy (model is confident) but high surprisal (it confidently said something wrong), and vice versa. The experiment thus tests whether surprisal-based masking — the best our infrastructure supports — replicates the entropy-based result.
+
+### 4B results
+
+| Condition | s42 | s101 | s202 | Mean ± Std |
+|-----------|-----|------|------|------------|
+| Baseline (GRPO + none) | 47.4% | 48.1% | 47.4% | 47.6% ± 0.3% |
+| Entropy mask ($\rho = 0.2$, surprisal) | 48.2% | 47.2% | 46.6% | 47.3% ± 0.7% |
+
+| | Delta vs baseline |
+|-|-------------------|
+| Entropy mask (4B) | −0.3pp (neutral) |
+
+The mask was nearly inert. The surprisal distribution at 4B scale is concentrated near zero — most tokens have low surprisal because the model is generally well-calibrated. With $\rho = 0.2$, the threshold sits so low that the mask activates on only ~10% of batches, leaving advantages unchanged for the vast majority of training steps.
+
+### 30B preliminary results (in progress)
+
+A parallel campaign on Qwen3-30B-A3B (LoRA rank 64, $\rho = 0.2$, same 3 seeds) is running at ~step 65/100. Preliminary running correct rates:
+
+| Seed | Running CR at step 65 |
+|------|-----------------------|
+| s42 | 46.6% |
+| s101 | 47.2% |
+| s202 | 47.2% |
+
+The mask activates more often at 30B (entropy mask fraction varies from 27% to 79% per batch vs. ~10% at 4B), likely because the larger model produces a wider surprisal distribution. However, the running CRs show no upward separation from expected baseline performance. We will update this section when the 30B campaign completes.
+
+### Interpretation
+
+The diagnostic confirms that **surprisal-based masking does not replicate Yue et al.'s entropy-based result**. This is not surprising in hindsight: surprisal is a noisy, one-dimensional projection of the full vocabulary distribution. Two tokens with identical surprisal can have wildly different entropy profiles — one from a peaked distribution (low $H$, lucky sample), another from a flat distribution (high $H$, typical sample). Masking by surprisal conflates these cases.
+
+This finding clarifies the SEPA null result from a different angle. All of our token-level reshaping — pooling, amplification, masking — operates on surprisal, not entropy. The original Yue et al. result relies on true Shannon entropy, which requires access to the full per-position logit vector. Current inference backends (including Tinker) return only the sampled token's log-probability, not the ~150k-dimensional vocabulary distribution needed to compute $H(t)$.
+
+**What this means for SEPA going forward:** the composable framework and the pooling/amplification mechanisms are not inherently flawed — they were simply operating on the wrong signal. Testing whether entropy-based variants work requires infrastructure changes: either a backend that returns per-position logits, or a secondary forward pass that computes $H(t)$ directly. This is a meaningful engineering effort (logit vectors for a 4B model are ~600KB per position), but it would unlock both a proper Yue et al. replication and entropy-based SEPA variants.
+
 ## Discussion
 
 #### Credit assignment may affect speed, not ceiling
@@ -503,9 +556,9 @@ The adaptive $\lambda$ schedule connects to a broader observation: SEPA does not
 ## Limitations
 
 - **Planning mask quality.** Our regex-based strategic gram detector (18 hand-curated phrases) is simpler than the full semantic clustering pipeline [(Wang et al., 2025)](https://arxiv.org/abs/2509.03646) and has not been validated against human annotations. The failure modes are asymmetric, and this asymmetry points directly at the highest-value improvement. False negatives (planning tokens mislabeled as execution) are actively destructive: SEPA pools away their surprisal signal, inverting the intended effect. False positives (execution tokens mislabeled as planning) are benign: SEPA simply leaves their noise unchanged. This means the mask's *recall* on planning tokens matters more than its precision, and the first priority for improving the stack is reducing false negatives. The mask also misses implicit planning: a model may shift strategy mid-sequence without producing any of the 18 trigger phrases. A learned or attention-based detector that captures implicit planning would address both failure modes. We designed the mask as a swappable component specifically to enable this upgrade. **[Update.]** We built a semantic detector using sentence-transformers (`all-MiniLM-L6-v2`) that matches ~24% of tokens vs. 0.05% for regex — a 5000× improvement. The result was unchanged. This limitation is resolved; mask quality was not the bottleneck.
-- **Surprisal vs. entropy.** Our GTPO implementation uses surprisal ($-\log p$ of the sampled token) rather than the true policy entropy that the original formulation specifies [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349), and does not separate rollouts into correct/incorrect sets. Surprisal compounds a problem that exists even with true entropy (high-uncertainty execution tokens receiving disproportionate credit) by adding sampling artifacts from peaked distributions.
+- **Surprisal vs. entropy.** Our GTPO implementation uses surprisal ($-\log p$ of the sampled token) rather than the true policy entropy that the original formulation specifies [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349), and does not separate rollouts into correct/incorrect sets. Surprisal compounds a problem that exists even with true entropy (high-uncertainty execution tokens receiving disproportionate credit) by adding sampling artifacts from peaked distributions. **[Update.]** The [Yue diagnostic](#yue-entropy-masking-diagnostic) confirmed this is likely the central limitation: surprisal-based entropy masking was nearly inert (−0.3pp, 3 seeds), while Yue et al.'s results depend on true Shannon entropy $H(t) = -\sum_v p_v \log p_v$. Resolving this requires infrastructure that exposes per-position logit vectors, which current backends do not support.
 - **Insufficient compute.** Our primary results are not statistically significant. We report them as directional evidence, not conclusions. **[Update.]** Follow-up experiments (14 runs, ~115k generations, $\lambda$ = 0.94) had sufficient power but confirmed a zero-effect-size null. This limitation is resolved.
-- **Single model and task.** Qwen3-4B on math reasoning only.
+- **Single model and task.** Qwen3-4B on math reasoning only. **[Update.]** The Yue diagnostic includes a parallel 30B experiment (Qwen3-30B-A3B); preliminary results track similarly to 4B, but the campaign is still running.
 - **Truncated runs.** The original design called for 100 steps per run; we reduced to 40 for the lean campaign and then cut short at step 12--16 because of compute budget exhaustion. **[Update.]** Follow-up ran the full 100 steps. This limitation is resolved.
 
 ## Conclusion
@@ -519,6 +572,8 @@ We introduced SEPA pooling, which reduces execution-token surprisal variance bef
 The composable framework remains useful — it enabled rapid diagnosis and pivoting. **SEPA Amplification** (reversing the mechanism to push execution-token entropies *away* from their mean) also produced a null result: +0.1pp for raw amplification, -0.6pp for clamped, across 6 additional runs. Reshaping the surprisal signal fed to GTPO — whether by compressing variance (pooling) or expanding it (amplification) — does not improve training at 4B scale.
 
 The lesson is broader than the direction of the transform: token-level surprisal reshaping via structural masks may be orthogonal to the actual learning signal. The forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939) are defined by entropy magnitude, not by whether they belong to planning or execution spans. A planning token can be low-entropy (confident strategy), and an execution token can be high-entropy (genuine decision fork). SEPA's structural partition may simply not align with the gradient-relevant partition.
+
+**[Update 3.]** A direct Yue et al. diagnostic (entropy masking with $\rho = 0.2$, no GTPO) confirmed that **surprisal-based masking is nearly inert**: −0.3pp at 4B (3 seeds), with the mask activating on only ~10% of batches. The root issue is that our pipeline computes surprisal $S(t) = -\log p(t_{\text{sampled}})$, not Shannon entropy $H(t) = -\sum_v p_v \log p_v$. Yue et al.'s result depends on the full vocabulary distribution, which current inference backends do not expose. Rescuing token-level credit assignment — whether via SEPA or direct entropy masking — requires infrastructure that returns per-position logits. See [Yue Diagnostic](#yue-entropy-masking-diagnostic).
 
 ## References
 

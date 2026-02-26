@@ -671,6 +671,10 @@ The lesson is broader than the direction of the transform: token-level surprisal
 
 **[Update 4.]** Two final experiments confirm the logprob ceiling. A **30B 3-seed campaign** showed SEPA at +2.60pp with 3× lower variance (Cohen's $d = 1.54$), the first consistent positive direction in our series — but with only 3 seeds, $p = 0.26$. A **predictive variance experiment** tested $p(1-p)$ as an alternative to surprisal: both signals are monotonic functions of the same scalar $p_t$ and produce algebraically equivalent GTPO rankings (−0.78pp, 3 seeds, 4B). This closes the loop: *no function of the sampled token's log-probability can approximate Shannon entropy*. The information is not in the logprob — it is in the ~150k-dimensional vocabulary distribution that current backends do not expose. Rescuing token-level credit assignment requires infrastructure that returns per-position entropy, either via full logit vectors, top-$k$ logprobs ($k \geq 50$), or a server-side entropy scalar. See [Predictive Variance Experiment](#predictive-variance-experiment).
 
+## Acknowledgments
+
+This research was made possible by [ThinkyMachines](https://thinkymachines.com), whose sponsorship provided the GPU compute budget for all experiments reported here. The 30B-scale campaigns, predictive variance sweeps, and Yue et al. diagnostics — 32 runs totaling ~280k generations and ~80 GPU-hours — ran on infrastructure powered by [Tinker](https://tinker.thinkymachines.com), ThinkyMachines' remote training service. Without their support, these experiments would not have been feasible.
+
 ## References
 
 - Lightman, H., Kosaraju, V., Burda, Y., Edwards, H., Baker, B., Lee, T., Leike, J., Schulman, J., Sutskever, I., & Cobbe, K. (2023). [Let's Verify Step by Step](https://arxiv.org/abs/2305.20050). *arXiv:2305.20050*.

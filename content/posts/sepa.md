@@ -14,6 +14,8 @@ math = true
 
 [Read the full paper (PDF)](/sepa.pdf)
 
+> **Update (Feb 28, 2026).** Controlled ablation across 30 runs (3 campaigns, 8 conditions) reveals why all advantage-level interventions produce null results. **(1) GRPO advantage bound proof:** with binary rewards $\{0,1\}$ and group size $G$, GRPO advantages $A_i = r_i - \bar{r}$ satisfy $|A_i| \leq (G-1)/G < 1$. Any `adv_clip_max` $\geq 1$ is a guaranteed no-op — confirmed empirically with `adv_cap_fraction = 0.0` across all GRPO runs. **(2) MaxRL equivalence:** MaxRL advantages reach $15\times$ (when 1/$G$ correct) and produce 20× larger loss values than GRPO, yet converge to the same correct rate (0.471 vs 0.473, 3 seeds each, 100 steps). **(3) Advantage capping with real intervention:** MaxRL + `adv_clip_max=2.0` triggers on 68% of steps, capping advantages at magnitudes 7–15. Result: 0.477 (identical within noise). **(4) SEPA with cross-condition entropy comparison:** new per-condition entropy stats confirm SEPA reduces `post_exec_surprisal_var` from 0.10 to 0.001 (99% reduction) with zero effect on correct rate. The likely explanation: Adam's per-parameter adaptive learning rate normalizes gradient magnitude, making the model insensitive to advantage scale. All our interventions change magnitude, not direction. See [Advantage Magnitude Ablation](#advantage-magnitude-ablation).
+>
 > **Update (Feb 26, 2026).** Two new experiments completed. **(1) 30B 3-seed campaign** replaces the single-seed probe: SEPA final CR 60.2% ± 0.8% vs. baseline 57.6% ± 2.3% (+2.6pp, Cohen's $d = 1.54$, but $t = 1.54$, $p = 0.26$ with only 3 seeds). The effect size is large and SEPA's variance is 3× lower, but statistical power is insufficient to confirm. **(2) Predictive variance experiment:** we tested $p(1-p)$ as an alternative uncertainty signal to surprisal $-\log p$, hoping a signal closer to true entropy would help. **Result: no improvement.** Final CR 50.5% ± 0.5% vs. surprisal 51.3% ± 0.5% (−0.8pp, 4B, 3 seeds). Both signals produce identical learning curves because both are one-dimensional projections of the sampled token's probability — neither captures the full vocabulary distribution $H(t) = -\sum_v p_v \log p_v$ that Yue et al.'s result depends on. The fundamental bottleneck is logprob-only access. See [Predictive Variance Experiment](#predictive-variance-experiment) and [30B 3-Seed Results](#phase-3-30b-scale-3-seeds).
 >
 > **Update (Feb 25, 2026, evening).** Yue et al. diagnostic complete: we directly tested entropy masking (top-20% tokens, $\rho=0.2$) using our surprisal proxy instead of true Shannon entropy. **Result: masking was nearly inert.** The mask activated on only ~10% of batches because the surprisal distribution is too concentrated near zero for the $\rho$-percentile threshold to bite. Final running CR: 47.3% (4B, 3 seeds) vs. 47.6% baseline (−0.3pp). A parallel 30B experiment tracks similarly (~46%). This confirms the core issue: our pipeline has access to per-token surprisal $S(t) = -\log p(t_{\text{sampled}})$, not Shannon entropy $H(t) = -\sum_v p_v \log p_v$. Yue et al.'s masking requires the full vocabulary distribution. Replicating their result — and potentially rescuing SEPA — requires infrastructure that exposes per-position logits, which current Tinker backends do not support. See [Yue Diagnostic](#yue-entropy-masking-diagnostic).
@@ -30,7 +32,7 @@ We propose a compositional credit assignment framework with a plug-compatible in
 
 Preliminary experiments (36 runs, ~159k generations) did not reach statistical significance. The predicted condition ranking appeared at a single early checkpoint but was not sustained in cumulative metrics, leaving open whether the effect is on learning speed or is simply noise at this scale. A mechanistic diagnostic on 318k tokens confirmed that SEPA reduces execution-token surprisal variance by 98% while leaving planning tokens unchanged ([Figure 1](#mechanistic-diagnostic-does-sepa-reshape-the-surprisal-distribution)). The contribution is twofold: a compositional framework that makes the independence between episode-level and token-level credit explicit, and SEPA as a concrete module within that framework, validated mechanistically but with underpowered training outcomes. We release all infrastructure to enable conclusive testing.
 
-**[Update.]** Follow-up experiments (14 additional runs, ~115k generations, $\lambda$ reaching 0.94) produced a **definitive null result**: SEPA pooling does not improve training at any strength. A 5000× better planning detector (semantic embeddings vs. regex) made no difference. The root cause is that pooling compresses execution-token entropy toward the mean, suppressing exactly the high-entropy forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). **[Update 2.]** SEPA Amplification (reversing the direction) also produces no separation: +0.1pp for raw amplification, -0.6pp for clamped, across 6 runs. See [Amplification Results](#sepa-amplification-results). **[Update 3.]** A direct Yue et al. diagnostic (entropy masking, $\rho = 0.2$) produced a −0.3pp result at 4B. The core issue: our pipeline uses surprisal $S(t)$, not Shannon entropy $H(t)$; masking by surprisal is nearly inert. Resolving this requires per-position logits. See [Yue Diagnostic](#yue-entropy-masking-diagnostic). **[Update 4.]** A 30B 3-seed campaign shows +2.6pp for SEPA with 3× lower variance ($d = 1.54$), but $p = 0.26$ (underpowered). A predictive variance experiment ($p(1-p)$ vs. surprisal) confirmed that *any* single-token uncertainty signal is insufficient: both are one-dimensional projections of the sampled token's logprob and cannot approximate the full-vocabulary entropy that token-level credit requires. See [Predictive Variance](#predictive-variance-experiment).
+**[Update.]** Follow-up experiments (14 additional runs, ~115k generations, $\lambda$ reaching 0.94) produced a **definitive null result**: SEPA pooling does not improve training at any strength. A 5000× better planning detector (semantic embeddings vs. regex) made no difference. The root cause is that pooling compresses execution-token entropy toward the mean, suppressing exactly the high-entropy forking tokens that drive RL learning [(Yue et al., 2026)](https://arxiv.org/abs/2506.01939). **[Update 2.]** SEPA Amplification (reversing the direction) also produces no separation: +0.1pp for raw amplification, -0.6pp for clamped, across 6 runs. See [Amplification Results](#sepa-amplification-results). **[Update 3.]** A direct Yue et al. diagnostic (entropy masking, $\rho = 0.2$) produced a −0.3pp result at 4B. The core issue: our pipeline uses surprisal $S(t)$, not Shannon entropy $H(t)$; masking by surprisal is nearly inert. Resolving this requires per-position logits. See [Yue Diagnostic](#yue-entropy-masking-diagnostic). **[Update 4.]** A 30B 3-seed campaign shows +2.6pp for SEPA with 3× lower variance ($d = 1.54$), but $p = 0.26$ (underpowered). A predictive variance experiment ($p(1-p)$ vs. surprisal) confirmed that *any* single-token uncertainty signal is insufficient: both are one-dimensional projections of the sampled token's logprob and cannot approximate the full-vocabulary entropy that token-level credit requires. See [Predictive Variance](#predictive-variance-experiment). **[Update 5.]** A controlled ablation (30 runs, 8 conditions) proves GRPO advantages are bounded $|A_i| < 1$ with binary rewards, making advantage capping a guaranteed no-op. MaxRL (unbounded advantages, 20× larger loss) converges to the same outcome. Advantage capping at 68% trigger rate on MaxRL also changes nothing. The likely explanation: Adam's adaptive learning rate normalizes gradient magnitude, making all advantage-scale interventions equivalent. See [Advantage Magnitude Ablation](#advantage-magnitude-ablation).
 
 ## Introduction
 
@@ -597,6 +599,70 @@ Any function $f(\log p_t)$ — whether $-\log p$, $p(1-p)$, $\sqrt{p}$, or any o
 
 Current Tinker backends return only the sampled token's logprob. Adding option (3) — a per-position entropy scalar — would be the minimal infrastructure change needed to test the entropy hypothesis. This is a single additional field per token in the sampling response, with the entropy computation happening server-side where the full logit vector is already available in GPU memory.
 
+## Advantage Magnitude Ablation
+
+**[Update 5, Feb 28, 2026.]** Previous experiments varied the *token-level credit assignment mechanism* (SEPA, GTPO, HICRA, amplification, entropy masking, predictive variance) while holding the episode-level advantage mode and training dynamics fixed. This section varies the *advantage magnitude and distribution* to test whether the null results reflect a deeper insensitivity to advantage-level interventions.
+
+### GRPO advantage bound
+
+GRPO computes episode-level advantages as $A_i = r_i - \bar{r}$. With binary rewards $r_i \in \{0, 1\}$ and group size $G$:
+
+$$|A_i| \leq \max(1 - \bar{r},\; \bar{r}) = \frac{G-1}{G}$$
+
+For $G = 16$, the maximum possible advantage magnitude is $15/16 = 0.9375$. Any advantage cap $\geq 1.0$ is therefore a **guaranteed no-op** for GRPO with binary rewards. This was confirmed empirically: `adv_cap_fraction = 0.0` across all GRPO runs at cap values of 2.0 and 5.0.
+
+This contrasts with MaxRL, where $A_i^{\text{MaxRL}} = (r_i - \bar{r})/(\bar{r} + \epsilon)$ produces advantages up to $15.0$ when $1/G$ correct.
+
+### Experimental design
+
+Three campaigns totaling 30 runs on Tinker (Qwen3-4B, LoRA rank 128, $G = 16$, $T = 0.7$):
+
+| Campaign | Conditions | Seeds | Steps | Purpose |
+|----------|-----------|-------|-------|---------|
+| clip-rescue | 4 × 3 = 12 | 42, 101, 202 | 100 | GRPO ± capping, SEPA + capping |
+| maxrl-sweep | 4 × 3 = 12 | 42, 101, 202 | 100 | GRPO vs MaxRL ± capping |
+| lr-sweep | 2 × 2 = 4 | 42, 101 | 200 | Learning rate 4e-6 vs 4e-5 |
+
+### Results
+
+All conditions converge to the same correct rate:
+
+| Condition | Seeds | Avg correct rate | Cap trigger rate |
+|-----------|-------|-----------------|------------------|
+| GRPO baseline | 3 | 0.473 | — |
+| GRPO + cap=5.0 | 3 | 0.473 | 0% (no-op) |
+| GRPO + cap=2.0 | 3 | 0.472 | 0% (no-op) |
+| GRPO + SEPA + cap=5.0 | 3 | 0.477 | 0% (no-op) |
+| MaxRL uncapped | 3 | 0.471 | — |
+| MaxRL + cap=5.0 | 3 | 0.473 | 52% |
+| MaxRL + cap=2.0 | 3 | 0.477 | 68% |
+
+MaxRL produces loss values 20× larger than GRPO at step 40 (9.8 vs 0.5), confirming that Tinker uses our advantages directly in the importance-sampling loss without internal normalization. Despite this, the correct rate is identical.
+
+Advantage capping on MaxRL triggers on 52–68% of steps, capping advantages at magnitudes 7.0 and 15.0 (corresponding to groups with 2/16 and 1/16 correct). The cap is genuinely intervening — yet the training outcome does not change.
+
+SEPA with cross-condition entropy metrics (newly added to the baseline branch) confirms: `post_exec_surprisal_var` = 0.001 on SEPA conditions vs. raw `exec_surprisal_var` = 0.10. The 99% reduction is real but has no effect on correct rate.
+
+The lr-sweep (4e-6 vs 4e-5, a 10× difference) also produces identical trajectories through 200 steps, with both conditions at ~0.49 by step 140.
+
+### Interpretation: Adam absorbs advantage scale
+
+The gradient of the importance-sampling loss with respect to model parameters is proportional to the advantage magnitude:
+
+$$\frac{\partial \mathcal{L}}{\partial \theta} \propto -A_i \cdot \frac{\pi_\theta^{\text{new}}}{\pi_\theta^{\text{old}}} \cdot \nabla_\theta \log \pi_\theta$$
+
+Adam's update rule normalizes each parameter by $m_t / \sqrt{v_t + \epsilon}$, where $v_t$ tracks the running variance of gradients. When advantages are consistently $k\times$ larger, $v_t$ scales by $k^2$, and the effective update $m_t / \sqrt{v_t}$ remains approximately constant.
+
+This explains why:
+- GRPO and MaxRL (20× loss difference) produce the same outcome
+- Advantage capping (reducing magnitudes by bounding) produces the same outcome
+- SEPA (redistributing magnitudes across tokens) produces the same outcome
+- Different learning rates (10× apart) produce the same outcome
+
+All these interventions change gradient *magnitude*. Adam is specifically designed to be invariant to gradient scale. The only interventions that could change training dynamics are those that alter gradient *direction* (e.g., ratio clipping, entropy bonus) or that operate outside Adam's normalization (e.g., the learning rate, though our 10× range was apparently within Adam's adaptive capacity).
+
+We note this interpretation is indirect: we cannot inspect Tinker's internal optimizer state. The evidence is the MaxRL/GRPO equivalence (same outcome despite 20× loss difference) combined with Adam's known scale-invariance property. An alternative explanation — that Tinker internally normalizes advantages before computing the loss — is ruled out by the 20× loss difference in the reported metrics.
+
 ## Discussion
 
 #### Credit assignment may affect speed, not ceiling
@@ -670,6 +736,8 @@ The lesson is broader than the direction of the transform: token-level surprisal
 **[Update 3.]** A direct Yue et al. diagnostic (entropy masking with $\rho = 0.2$, no GTPO) confirmed that **surprisal-based masking is nearly inert**: −0.3pp at 4B (3 seeds), with the mask activating on only ~10% of batches. The root issue is that our pipeline computes surprisal $S(t) = -\log p(t_{\text{sampled}})$, not Shannon entropy $H(t) = -\sum_v p_v \log p_v$. Yue et al.'s result depends on the full vocabulary distribution, which current inference backends do not expose.
 
 **[Update 4.]** Two final experiments confirm the logprob ceiling. A **30B 3-seed campaign** showed SEPA at +2.60pp with 3× lower variance (Cohen's $d = 1.54$), the first consistent positive direction in our series — but with only 3 seeds, $p = 0.26$. A **predictive variance experiment** tested $p(1-p)$ as an alternative to surprisal: both signals are monotonic functions of the same scalar $p_t$ and produce algebraically equivalent GTPO rankings (−0.78pp, 3 seeds, 4B). This closes the loop: *no function of the sampled token's log-probability can approximate Shannon entropy*. The information is not in the logprob — it is in the ~150k-dimensional vocabulary distribution that current backends do not expose. Rescuing token-level credit assignment requires infrastructure that returns per-position entropy, either via full logit vectors, top-$k$ logprobs ($k \geq 50$), or a server-side entropy scalar. See [Predictive Variance Experiment](#predictive-variance-experiment).
+
+**[Update 5.]** A controlled ablation across 30 runs (3 campaigns, 8 conditions, 100–200 steps) confirms that **all advantage-level interventions are null** and explains why. GRPO advantages with binary rewards $\{0,1\}$ and group size $G$ satisfy $|A_i| = |r_i - \bar{r}| \leq (G-1)/G < 1$: advantage capping at any threshold $\geq 1$ is a guaranteed no-op (confirmed: `adv_cap_fraction = 0.0` across all GRPO runs). MaxRL advantages, which *are* heavy-tailed (up to $15\times$ when $1/G$ correct), produce 20× larger loss values — yet converge to the same correct rate (0.471 vs 0.473, 3 seeds). Even aggressive capping (cap = 2.0, triggering on 68% of steps) yields 0.477: identical within noise. The likely explanation is Adam's per-parameter adaptive learning rate: when advantages scale by $k$, the second moment $v_t$ scales by $k^2$, and the effective update $m_t / \sqrt{v_t}$ remains constant. All our interventions change gradient *magnitude*, not *direction*. See [Advantage Magnitude Ablation](#advantage-magnitude-ablation).
 
 ## Acknowledgments
 

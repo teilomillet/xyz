@@ -115,7 +115,7 @@ A natural counterargument: the KromHC dynamic coefficients are input-dependent, 
 
 Compare this with DeepSeek's mHC[^13], which uses a different parameterization called Sinkhorn-Knopp projection[^14] instead of softmax. Their approach doesn't have the $p(1-p)$ gradient bottleneck, because Sinkhorn-Knopp gradients flow through the projection operator rather than through a saturating nonlinearity. Whether their mixing matrices learn non-trivial patterns at scale is a question we cannot answer from the published results, but the parameterization itself does not have the structural barrier we identified.
 
-Our claim is precisely scoped: at small scale (51M parameters) with the softmax parameterization and default initialization, multi-stream mixing never emerges. Whether it emerges at larger scale with the same parameterization remains unknown, because, to our knowledge, nobody has reported it.
+Our claim is precisely scoped: at small scale (51M parameters) with the softmax parameterization and default initialization, multi-stream mixing does not meaningfully emerge. Whether it emerges at larger scale with the same parameterization remains unknown, because, to our knowledge, nobody has reported it.
 
 ## What this means
 

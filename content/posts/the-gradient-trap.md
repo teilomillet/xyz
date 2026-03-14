@@ -95,7 +95,9 @@ At our scale, the main effect appears thresholded rather than smoothly graded. O
 
 Two additional geometric observations. First, KromCanon's direction norm profile is 2.8× flatter than vanilla's across layers (norm range 0.029 ± 0.003 vs 0.082 ± 0.009, N=3, non-overlapping standard errors). Multi-stream coupling distributes the safety-contrast signal evenly across layers rather than concentrating it. This is a pure KromHC effect: a Canon-isolation ablation shows the same flatness without Canon layers.
 
-Second, directions extracted from different architectures or different seeds are unrelated. Cross-architecture direction cosines (vanilla vs canon vs KromCanon) average |cos| ≈ 0.04 across N=3 seeds, indistinguishable from random in 512 dimensions. Cross-seed cosines within the same architecture are equally random. Each training run discovers its own safety-contrast direction, consistent with the non-identifiability results of Venkatesh and Kurapath[^18].
+Second, the directions are robust to SFT budget. With 5× fewer steps and 10× fewer examples, the extracted directions maintain cosine similarity of 0.84 (KromCanon), 0.80 (vanilla), and 0.72 (Canon) with the full-budget directions. KromCanon's multi-stream structure produces the most stable directions; Canon's local convolutions produce the least stable. The architectural findings do not depend on SFT saturation.
+
+Third, directions extracted from different architectures or different seeds are unrelated. Cross-architecture direction cosines (vanilla vs canon vs KromCanon) average |cos| ≈ 0.04 across N=3 seeds, indistinguishable from random in 512 dimensions. Cross-seed cosines within the same architecture are equally random. Each training run discovers its own safety-contrast direction, consistent with the non-identifiability results of Venkatesh and Kurapath[^18].
 
 ## Safety fine-tuning and first-loss effects
 
@@ -162,6 +164,7 @@ The loss ordering KromCanon < Canon < Vanilla is consistent across all three see
 | Loss ordering (KromCanon < Canon < Vanilla) | 3 | Yes |
 | Direction norm flatness (KromCanon 2.8× flatter) | 3 | Yes |
 | Cross-seed directions at random baseline | 3 | Yes |
+| Direction stability under 5× SFT reduction | 1 | Yes (cos 0.72-0.84) |
 | SFT first-loss correlation (low first-loss → anomaly) | 3 | Approximate |
 | Alpha topology (layer-specific mixing pattern) | 3 | Mostly seed-dependent |
 | Canon coherence boost (+0.002 to +0.017) | 2 | Not robust |

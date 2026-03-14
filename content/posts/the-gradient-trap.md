@@ -47,7 +47,7 @@ The reason this matters is the softmax gradient. The gradient of a softmax outpu
 
 ![The softmax gradient p(1-p) is 0.0003 at bias=-8 vs 0.105 at bias=-2, a 313x difference that determines whether mixing can learn.](/kromcanon-gradient-curve.png)
 
-In principle, the dynamic component could push the swap probability high enough for nontrivial mixing to emerge. It doesn't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
+In principle, the dynamic component could push the swap probability high enough for nontrivial mixing to emerge. In our bias=-8 runs, it doesn't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
 
 ![Two panels showing swap probability per layer. Left (bias=-8): every layer is near 0% mixing; the model's dynamic component fights hard but can't push past 0.4%. Right (bias=-2): several layers reach meaningful mixing. L0/ffn hits 37%, L1/attn reaches 31%. Nontrivial mixing appears.](/kromcanon-trap-mechanism.png)
 
@@ -73,7 +73,7 @@ The figure below shows the dynamic coefficient $\alpha_{res}$ (how hard the mode
 
 At bias=-8 (blue), every layer is trapped near 0% mixing. The model pushes $\alpha_{res}$ as high as 0.93 (L2/attn), maximum effort, but the best achievable swap probability is still 0.4%. At bias=-2 (red), the same mechanism works: L0/ffn reaches $\alpha = 0.84$ and achieves 37% swap probability. Some layers actively suppress mixing (L0/attn, L2/attn have negative $\alpha$), pulling their swap probability back *down*. The model builds a non-uniform topology: amplifying where mixing helps, suppressing where it doesn't.
 
-This pattern is stable from step 1000 to step 2000 within a single run. However, N=3 replication reveals that most of the topology is seed-dependent: only 5 of 16 layer/branch pairs maintain consistent $\alpha_{res}$ sign across seeds. L0/ffn is the only layer that robustly reaches maximum amplification in all three runs. The non-uniform topology is real, but most of its details are training-trajectory artifacts rather than architectural necessities. To our knowledge, nobody has visualized this for KromHC before.
+This pattern is stable from step 1000 to step 2000 within a single run. However, N=3 replication reveals that most of the topology is seed-dependent: only 5 of 16 layer/branch pairs maintain consistent $\alpha_{res}$ sign across seeds. L0/ffn is the only layer that robustly reaches maximum amplification in all three runs. The non-uniform topology is real, but most of its details appear to be training-trajectory dependent rather than architecturally fixed. To our knowledge, nobody has visualized this for KromHC before.
 
 ## Directions survive multi-stream coupling
 
@@ -113,7 +113,7 @@ The geometric threshold remains robust. Per-stream cosines jump from 0.988 ± 0.
 
 In the published KromHC paper, we found no visualization of the learned mixing weights, no measurement of how far they move from initialization, and no ablation isolating the mixing matrix from the routing matrices. The paper reports performance improvements and gradient norm trajectories, but does not directly address whether the mixing actually happens.
 
-A natural counterargument: the KromHC dynamic coefficients are input-dependent, so the static initialization is just a starting point, and at larger scale the dynamic pathway might have sufficient signal to overcome it. We measured this directly (Section: The model sculpts its mixing). At our scale, the dynamic pathway tries ($\alpha_{res}$ reaches 0.93) and fails. The static initialization at $-8$ places the system so deep in the saturated regime that the dynamic component cannot compensate. Whether this changes at 186M parameters and 454K steps is an open empirical question, but the mathematical structure of the saturation is scale-independent: $p(1-p)$ at $p = 0.9997$ is 0.0003 regardless of model size.
+A natural counterargument: the KromHC dynamic coefficients are input-dependent, so the static initialization is just a starting point, and at larger scale the dynamic pathway might have sufficient signal to overcome it. We measured this directly (Section: The model sculpts its mixing). At our scale, the dynamic pathway tries ($\alpha_{res}$ reaches 0.93) and appears unable to overcome the saturated initialization. The static initialization at $-8$ places the system so deep in the saturated regime that the dynamic component cannot compensate. Whether this changes at 186M parameters and 454K steps is an open empirical question, but the mathematical structure of the saturation is scale-independent: $p(1-p)$ at $p = 0.9997$ is 0.0003 regardless of model size.
 
 Compare this with DeepSeek's mHC[^13], which uses a different parameterization called Sinkhorn-Knopp projection[^14] instead of softmax. Their approach doesn't have the $p(1-p)$ gradient bottleneck, because Sinkhorn-Knopp gradients flow through the projection operator rather than through a saturating nonlinearity. Whether their mixing matrices learn non-trivial patterns at scale is a question we cannot answer from the published results, but the parameterization itself does not have the structural barrier we identified.
 
@@ -164,7 +164,7 @@ The loss ordering KromCanon < Canon < Vanilla is consistent across all three see
 | Loss ordering (KromCanon < Canon < Vanilla) | 3 | Yes |
 | Direction norm flatness (KromCanon 2.8× flatter) | 3 | Yes |
 | Cross-seed directions at random baseline | 3 | Yes |
-| Direction stability under 5× SFT reduction | 1 | Yes (cos 0.72-0.84) |
+| Direction stability under 5× SFT reduction | 1 | Preliminary |
 | SFT first-loss correlation (low first-loss → anomaly) | 3 | Approximate |
 | Alpha topology (layer-specific mixing pattern) | 3 | Mostly seed-dependent |
 | Canon coherence boost (+0.002 to +0.017) | 2 | Not robust |

@@ -27,7 +27,7 @@ We wanted to see how each modification affects the model's internal structure. W
 
 At our scale, they don't. And a one-line initialization change revives them.
 
-This post reports three findings. First, KromHC's default initialization keeps the mixing matrices frozen near identity throughout training, a consequence of softmax gradient saturation. Second, a milder initialization revives nontrivial mixing. Third, once mixing is active, safety-contrast directions remain highly aligned across streams (cosine 0.996 ± 0.0001, N=3), though different training runs discover unrelated directions. The downstream effect of mixing on fine-tuning correlates with pretrained representation quality rather than mixing strength.
+This post reports three findings. First, KromHC's default initialization keeps the mixing matrices frozen near identity throughout training, a consequence of softmax gradient saturation. Second, a milder initialization revives nontrivial mixing. Third, once mixing is active, safety-contrast directions remain highly aligned across streams (cosine 0.996 ± 0.0001, N=3), though different training runs discover unrelated directions. The downstream fine-tuning anomaly appears to correlate more with initial SFT loss than with mixing strength, though this boundary is approximate.
 
 ## One stream, four streams
 
@@ -39,7 +39,7 @@ In the reference implementation, every mixing weight is initialized to 0.03% swa
 
 ## The dial that can't turn
 
-In our experiments, the dial never turns.
+In our bias=-8 runs, the dial never turns.
 
 KromHC controls mixing through two pathways that feed into a softmax[^6] function. The first is a *static bias*, set to `[0, -8]` at initialization. The softmax converts this into two weights: an *identity weight* $p$ (how much each stream keeps its own information) and its complement, the *swap probability* $1-p$ (how much it exchanges with another stream). At a logit gap of 8, $p = 0.9997$ and swap probability is $0.03\%$, essentially zero. At our proposed gap of 2, $p = 0.881$ and swap probability is $12\%$. The second pathway is a *dynamic component* that modulates the mixing based on the input, controlled by a learned coefficient $\alpha_{res}$.
 
@@ -97,7 +97,7 @@ Two additional geometric observations. First, KromCanon's direction norm profile
 
 Second, directions extracted from different architectures or different seeds are unrelated. Cross-architecture direction cosines (vanilla vs canon vs KromCanon) average |cos| ≈ 0.04 across N=3 seeds, indistinguishable from random in 512 dimensions. Cross-seed cosines within the same architecture are equally random. Each training run discovers its own safety-contrast direction, consistent with the non-identifiability results of Venkatesh and Kurapath[^18].
 
-## Safety fine-tuning and the first-loss threshold
+## Safety fine-tuning and first-loss effects
 
 In our initial seed, we observed what appeared to be a sharp phase transition: SFT loss increased at bias=-8 and bias=-2, but decreased at bias=-1 and bias=0. This suggested a functional threshold tied to mixing strength. Multi-seed replication (N=3) revealed a different pattern.
 
@@ -111,7 +111,7 @@ The geometric threshold remains robust. Per-stream cosines jump from 0.988 ± 0.
 
 In the published KromHC paper, we found no visualization of the learned mixing weights, no measurement of how far they move from initialization, and no ablation isolating the mixing matrix from the routing matrices. The paper reports performance improvements and gradient norm trajectories, but does not directly address whether the mixing actually happens.
 
-A natural counterargument: the KromHC dynamic coefficients are input-dependent, so the static initialization is just a starting point, and at larger scale the dynamic pathway might have sufficient signal to overcome it. We measured this directly (Section: The model sculpts its mixing). The dynamic pathway tries ($\alpha_{res}$ reaches 0.93) and fails. The static initialization at $-8$ places the system so deep in the saturated regime that the dynamic component cannot compensate. Whether this changes at 186M parameters and 454K steps is an open empirical question, but the mathematical structure of the saturation is scale-independent: $p(1-p)$ at $p = 0.9997$ is 0.0003 regardless of model size.
+A natural counterargument: the KromHC dynamic coefficients are input-dependent, so the static initialization is just a starting point, and at larger scale the dynamic pathway might have sufficient signal to overcome it. We measured this directly (Section: The model sculpts its mixing). At our scale, the dynamic pathway tries ($\alpha_{res}$ reaches 0.93) and fails. The static initialization at $-8$ places the system so deep in the saturated regime that the dynamic component cannot compensate. Whether this changes at 186M parameters and 454K steps is an open empirical question, but the mathematical structure of the saturation is scale-independent: $p(1-p)$ at $p = 0.9997$ is 0.0003 regardless of model size.
 
 Compare this with DeepSeek's mHC[^13], which uses a different parameterization called Sinkhorn-Knopp projection[^14] instead of softmax. Their approach doesn't have the $p(1-p)$ gradient bottleneck, because Sinkhorn-Knopp gradients flow through the projection operator rather than through a saturating nonlinearity. Whether their mixing matrices learn non-trivial patterns at scale is a question we cannot answer from the published results, but the parameterization itself does not have the structural barrier we identified.
 
@@ -170,8 +170,8 @@ The loss ordering KromCanon < Canon < Vanilla is consistent across all three see
 
 We want to be explicit about what this work does and does not establish:
 
-- **Robust (N=3).** The gradient trap, per-stream cosine threshold, loss ordering, direction norm flatness, cross-seed direction independence, and the SFT first-loss threshold all replicate across three seeds. A Canon-isolation ablation (two seeds) suggests the gradient trap persists without Canon layers. Canon's coherence boost is seed-dependent (+0.017 at one seed, +0.002 at another) and not reliably separable from noise.
-- **Seed-dependent.** The alpha topology (which layers amplify vs suppress mixing) is mostly a training-trajectory artifact: only 5/16 layers maintain consistent sign across seeds. The SFT anomaly is driven by pretrained representation quality (first-loss threshold), not by mixing strength or architecture per se.
+- **Robust (N=3).** The gradient trap, per-stream cosine threshold, loss ordering, direction norm flatness, and cross-seed direction independence all replicate across three seeds. A Canon-isolation ablation (two seeds) suggests the gradient trap persists without Canon layers. Canon's coherence boost is seed-dependent (+0.017 at one seed, +0.002 at another) and not reliably separable from noise.
+- **Approximate.** The SFT anomaly correlates with initial SFT loss rather than mixing strength, but the boundary between anomalous and normal convergence is not perfectly sharp. The alpha topology (which layers amplify vs suppress mixing) is mostly seed-dependent: only 5/16 layers maintain consistent sign across seeds.
 - **Scale.** All experiments are at 51M parameters, 2000 training steps. The gradient trap is a property of the softmax parameterization and holds at any scale, but we have not verified whether mixing emerges at larger scale even with bias=-8 given more compute.
 - **Behavioral directions.** We measure geometric properties (cosine similarity of per-stream directions), not behavioral effects. At our loss level (perplexity ~330-400), the model cannot refuse or comply. Whether the directional coherence we observe would translate to robust abliteration in a converged model is unknown.
 

@@ -1,5 +1,5 @@
 +++
-title = 'The Gradient Trap: KromHC multi-stream mixing'
+title = 'The Gradient Trap in KromHC'
 date = 2026-03-14
 draft = false
 description = 'We built a transformer with four parallel information streams designed to share information. They never did. Here is why, and what happened when we fixed it.'

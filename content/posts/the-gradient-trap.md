@@ -121,7 +121,7 @@ Our claim is precisely scoped: at small scale (51M parameters) with the softmax 
 
 Our primary contribution is architectural, not interpretability. The gradient trap, the routing vs mixing distinction, the topology sculpting, these hold at any loss level because they're about parameter dynamics, not text quality. The practical lesson: if you build a multi-stream model, do not assume the architecture you wrote is the architecture that trained. Inspect the learned mixing matrices. A model can have multi-stream equations on paper while behaving like redundant single-stream copies in practice.
 
-The bias sweep reveals a symmetry. At one extreme (bias=-8), streams don't mix: the architecture collapses to a single effective stream with four redundant copies. At the other extreme (bias=0), streams mix perfectly: the doubly stochastic contraction homogenizes representations, and the four streams converge to near-identical states[^11]. Both extremes lose the benefit of multi-stream diversity. The useful regime lies between them, though across three seeds, pretraining loss does not clearly favor one initialization over another (5.74 ± 0.08 at bias=-8 vs 5.78 ± 0.08 at bias=-2, overlapping error bars). The downstream effects of mixing strength remain an open question.
+The bias sweep reveals a symmetry. At one extreme (bias=-8), streams don't mix: the architecture collapses to a single effective stream with four redundant copies. At the other extreme (bias=0), streams mix perfectly: the doubly stochastic contraction homogenizes representations, and the four streams converge to near-identical states[^11]. Both extremes lose the benefit of multi-stream diversity. The useful regime lies between them, though across three seeds, eval loss does not clearly favor one initialization over another (5.833 ± 0.009 at bias=-8 vs 5.830 ± 0.004 at bias=-2). The downstream effects of mixing strength remain an open question.
 
 If you're building multi-stream architectures, monitor your mixing matrices during training. Log $\|H^{res} - I\|$ at each checkpoint. If it stays near zero, your streams aren't mixing. Consider a milder initialization ($-2$ instead of $-8$), or switch to a parameterization that doesn't saturate.
 
@@ -133,23 +133,25 @@ If you use KromHC, the architecture is more capable than its default initializat
 
 ### Bias sweep (KromCanon, 8L512D)
 
-| Init bias | Swap prob | Gradient $p(1-p)$ | Pretrain loss | Per-stream cosine | Seeds |
-|:---------:|:---------:|:-----------------:|:-------------:|:-----------------:|:-----:|
-| $-8$ | 0.03% | 0.0003 | 5.74 ± 0.08 | 0.988 ± 0.002 | 3 |
-| $-2$ | 12% | 0.105 | 5.78 ± 0.08 | 0.996 ± 0.000 | 3 |
-| $-1$ | 27% | 0.197 | 5.83 | 0.996 | 1 |
-| $0$ | 50% | 0.250 | 5.82 | 0.997 | 1 |
+All losses are eval loss (held-out split).
+
+| Init bias | Swap prob | Gradient $p(1-p)$ | Eval loss | Per-stream cosine | Seeds |
+|:---------:|:---------:|:-----------------:|:---------:|:-----------------:|:-----:|
+| $-8$ | 0.03% | 0.0003 | 5.833 ± 0.009 | 0.988 ± 0.002 | 3 |
+| $-2$ | 12% | 0.105 | 5.830 ± 0.004 | 0.996 ± 0.000 | 3 |
+| $-1$ | 27% | 0.197 | 5.837 | 0.996 | 1 |
+| $0$ | 50% | 0.250 | 5.830 | 0.997 | 1 |
 
 ### Architecture comparison (bias=-8, N=3)
 
-| Architecture | Pretrain loss | Description |
-|:------------|:-------------:|:------------|
-| Vanilla | 5.97 ± 0.07 | Standard GPT-2 |
-| Canon | 5.86 ± 0.02 | + causal convolution |
-| KromCanon | 5.74 ± 0.08 | + Canon + KromHC (4 streams) |
-| KromHC only | 5.95 | + KromHC without Canon |
+| Architecture | Eval loss | Description |
+|:------------|:---------:|:------------|
+| Vanilla | 6.010 ± 0.007 | Standard GPT-2 |
+| Canon | 5.966 ± 0.008 | + causal convolution |
+| KromCanon | 5.833 ± 0.009 | + Canon + KromHC (4 streams) |
+| KromHC only | 5.926 | + KromHC without Canon |
 
-The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. KromHC without Canon does not improve over vanilla (5.95 vs 5.97), confirming that Canon is the ingredient driving the loss improvement, while KromHC provides the multi-stream structure.
+The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both Canon and KromHC contribute; combining them yields the best result.
 
 ### What replicates
 
@@ -165,7 +167,7 @@ The loss ordering KromCanon < Canon < Vanilla is consistent across all three see
 
 We want to be explicit about what this work does and does not establish:
 
-- **Robust (N=3).** The gradient trap (frozen mixing at bias=-8), per-stream cosine coherence (0.988 ± 0.002 vs 0.996 ± 0.0001), and the loss ordering (KromCanon < Canon < Vanilla) all replicate across three seeds. The Canon isolation ablation confirms the gradient trap exists with or without Canon layers: vanilla+KromHC (no Canon) shows the same frozen mixing, and KromHC alone does not improve over vanilla (loss 5.95 vs 5.94). Canon is the ingredient that makes KromCanon outperform the baseline.
+- **Robust (N=3).** The gradient trap (frozen mixing at bias=-8), per-stream cosine coherence (0.988 ± 0.002 vs 0.996 ± 0.0001), and the loss ordering (KromCanon < Canon < Vanilla) all replicate across three seeds. The Canon isolation ablation confirms the gradient trap exists with or without Canon layers: vanilla+KromHC (no Canon) shows the same frozen mixing. Both Canon and KromHC independently improve over vanilla (eval loss 5.97 and 5.93 vs 6.01), but combining them yields the best result (5.83).
 - **Not robust.** The SFT phase transition observed in our initial seed does not replicate. SFT loss trajectories are high-variance across seeds, and we cannot confirm a functional threshold between bias=-2 and bias=-1.
 - **Scale.** All experiments are at 51M parameters, 2000 training steps. The gradient trap is a property of the softmax parameterization and holds at any scale, but we have not verified whether mixing emerges at larger scale even with bias=-8 given more compute.
 - **Behavioral directions.** We measure geometric properties (cosine similarity of per-stream directions), not behavioral effects. At our loss level (perplexity ~330-400), the model cannot refuse or comply. Whether the directional coherence we observe would translate to robust abliteration in a converged model is unknown.

@@ -21,7 +21,7 @@ That's what we found. We trained three GPT-2[^2] variants from scratch on Apple 
 
 Same data, same hyperparameters, same number of training steps. The only difference is architecture. A fourth variant, **KromHC only** (KromHC without Canon), isolates the contribution of each modification.
 
-![Training curves for all four variants, N=3 seeds (N=2 for KromHC only), mean ± std bands. Eval loss: Vanilla 6.01, Canon 5.97, KromHC only 5.92, KromCanon 5.83. Both Canon and KromHC independently improve over vanilla; combining them yields the best result.](/kromcanon-training-curves.png)
+![Training curves for all four variants (N=3 seeds each), mean ± std bands. Eval loss: Vanilla 6.01, Canon 5.97, KromHC only 5.92, KromCanon 5.83. Both Canon and KromHC independently improve over vanilla; combining them yields the best result.](/kromcanon-training-curves.png)
 
 We wanted to see how each modification affects the model's internal structure. What we stumbled onto instead is a question we did not find addressed in the KromHC paper: whether the mixing matrices actually learn to mix.
 

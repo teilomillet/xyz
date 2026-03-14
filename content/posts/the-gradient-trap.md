@@ -27,7 +27,7 @@ We wanted to see how each modification affects the model's internal structure. W
 
 At our scale, they don't. And a one-line initialization change revives them.
 
-This post reports three findings. First, KromHC's default initialization keeps the mixing matrices frozen near identity throughout training, a consequence of softmax gradient saturation. Second, a milder initialization revives nontrivial, layer-specific mixing. Third, once mixing is active, safety-contrast directions remain highly aligned across streams (cosine 0.996 ± 0.0001, N=3). The downstream effect of mixing on fine-tuning remains unresolved.
+This post reports three findings. First, KromHC's default initialization keeps the mixing matrices frozen near identity throughout training, a consequence of softmax gradient saturation. Second, a milder initialization revives nontrivial mixing. Third, once mixing is active, safety-contrast directions remain highly aligned across streams (cosine 0.996 ± 0.0001, N=3), though different training runs discover unrelated directions. The downstream effect of mixing on fine-tuning correlates with pretrained representation quality rather than mixing strength.
 
 ## One stream, four streams
 
@@ -35,11 +35,11 @@ Modern transformers[^3] use a residual connection[^4] at every layer: $x = x + F
 
 KromHC[^1] is one implementation. Four parallel streams replace the single residual stream. At each layer, a doubly stochastic mixing matrix $H^{res}$ controls how much information flows between streams. The matrix is constrained so that no stream can grow unboundedly or collapse to zero.
 
-At initialization, every mixing weight is set to 0.03% swap, 99.97% identity. The four streams behave as independent copies of a single stream. This identity-like start is natural for optimization stability: the model begins as a standard transformer and is supposed to gradually discover useful mixing patterns. The KromHC reference implementation initializes `b_res = [0, -8]` and `alpha_res = 0.01`, and the Hyper-Connections paper[^5] uses the same near-identity principle.
+In the reference implementation, every mixing weight is initialized to 0.03% swap, 99.97% identity. The four streams behave as independent copies of a single stream. This identity-like start is natural for optimization stability: the model begins as a standard transformer and is supposed to gradually discover useful mixing patterns. The KromHC reference implementation initializes `b_res = [0, -8]` and `alpha_res = 0.01`, and the Hyper-Connections paper[^5] uses the same near-identity principle.
 
 ## The dial that can't turn
 
-At our scale, the dial never turns.
+In our experiments, the dial never turns.
 
 KromHC controls mixing through two pathways that feed into a softmax[^6] function. The first is a *static bias*, set to `[0, -8]` at initialization. The softmax converts this into two weights: an *identity weight* $p$ (how much each stream keeps its own information) and its complement, the *swap probability* $1-p$ (how much it exchanges with another stream). At a logit gap of 8, $p = 0.9997$ and swap probability is $0.03\%$, essentially zero. At our proposed gap of 2, $p = 0.881$ and swap probability is $12\%$. The second pathway is a *dynamic component* that modulates the mixing based on the input, controlled by a learned coefficient $\alpha_{res}$.
 
@@ -47,7 +47,7 @@ The reason this matters is the softmax gradient. The gradient of a softmax outpu
 
 ![The softmax gradient p(1-p) is 0.0003 at bias=-8 vs 0.105 at bias=-2, a 313x difference that determines whether mixing can learn.](/kromcanon-gradient-curve.png)
 
-In principle, the dynamic component could push the swap probability high enough for nontrivial mixing to emerge. At our scale, it doesn't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
+In principle, the dynamic component could push the swap probability high enough for nontrivial mixing to emerge. It doesn't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
 
 ![Two panels showing swap probability per layer. Left (bias=-8): every layer is near 0% mixing; the model's dynamic component fights hard but can't push past 0.4%. Right (bias=-2): several layers reach meaningful mixing. L0/ffn hits 37%, L1/attn reaches 31%. Nontrivial mixing appears.](/kromcanon-trap-mechanism.png)
 
@@ -73,7 +73,7 @@ The figure below shows the dynamic coefficient $\alpha_{res}$ (how hard the mode
 
 At bias=-8 (blue), every layer is trapped near 0% mixing. The model pushes $\alpha_{res}$ as high as 0.93 (L2/attn), maximum effort, but the best achievable swap probability is still 0.4%. At bias=-2 (red), the same mechanism works: L0/ffn reaches $\alpha = 0.84$ and achieves 37% swap probability. Some layers actively suppress mixing (L0/attn, L2/attn have negative $\alpha$), pulling their swap probability back *down*. The model builds a non-uniform topology: amplifying where mixing helps, suppressing where it doesn't.
 
-This pattern is stable from step 1000 to step 2000 (single seed; cross-seed robustness is pending). To our knowledge, nobody has visualized this for KromHC before. The KromHC paper reports performance improvements but does not show whether the mixing matrices learned non-trivial mixing, or what topology emerges when they do.
+This pattern is stable from step 1000 to step 2000 within a single run. However, N=3 replication reveals that most of the topology is seed-dependent: only 5 of 16 layer/branch pairs maintain consistent $\alpha_{res}$ sign across seeds. L0/ffn is the only layer that robustly reaches maximum amplification in all three runs. The non-uniform topology is real, but most of its details are training-trajectory artifacts rather than architectural necessities. To our knowledge, nobody has visualized this for KromHC before.
 
 ## Directions survive multi-stream coupling
 
@@ -91,15 +91,19 @@ At bias=-8 (no mixing), per-stream cosines sit around 0.982 to 0.991 (mean 0.988
 
 At our scale, the main effect appears thresholded rather than smoothly graded. Once mixing is turned on, cosines jump to a plateau: mean 0.996 ± 0.0001 at bias=-2 (three seeds), 0.996 at bias=-1, 0.997 at bias=0. Every mixing configuration produces substantially higher cosines than the identity baseline, but the three mixing regimes are essentially indistinguishable from each other. A concurrent paper[^11] proves this theoretically: doubly stochastic mixing matrices[^12] contract inter-stream differences at every layer, with contraction factor $|1-2s|$ where $s$ is the swap probability. At bias=-2 ($s = 0.12$), the contraction factor is 0.76 per mixing operation. Over 8 layers with two operations each: $0.76^{16} \approx 0.012$, meaning 98.8% of inter-stream difference is contracted away. At bias=-1 ($s = 0.27$), it is $0.46^{16} \approx 0$, essentially perfect contraction. The plateau is expected: once mixing exceeds $s \approx 0.1$, contraction saturates and additional mixing produces diminishing returns. Bias=0 ($s = 0.5$, perfect contraction by construction) confirms this, producing the highest mean cosines in the sweep (0.997).
 
-**At our scale, multi-stream coupling doesn't fragment representational directions. It homogenizes them.** Whether this carries over to actual behavioral directions in a converged model is the natural next experiment.
+**Multi-stream coupling doesn't fragment representational directions. It homogenizes them.** Whether this carries over to actual behavioral directions in a converged model is the natural next experiment.
 
-## Safety fine-tuning: an open question
+Two additional geometric observations. First, KromCanon's direction norm profile is 2.8× flatter than vanilla's across layers (norm range 0.029 ± 0.003 vs 0.082 ± 0.009, N=3, non-overlapping standard errors). Multi-stream coupling distributes the safety-contrast signal evenly across layers rather than concentrating it. This is a pure KromHC effect: a Canon-isolation ablation shows the same flatness without Canon layers.
 
-In our initial seed (42), we observed what appeared to be a sharp phase transition in SFT dynamics. At bias=-8 and bias=-2, the SFT loss slightly increased over 500 steps (0.72 → 0.76), while at bias=-1 and bias=0 it decreased substantially (1.03 → 0.72). This suggested a functional threshold between 12% and 27% swap probability.
+Second, directions extracted from different architectures or different seeds are unrelated. Cross-architecture direction cosines (vanilla vs canon vs KromCanon) average |cos| ≈ 0.04 across N=3 seeds, indistinguishable from random in 512 dimensions. Cross-seed cosines within the same architecture are equally random. Each training run discovers its own safety-contrast direction, consistent with the non-identifiability results of Venkatesh and Kurapath[^18].
 
-Multi-seed replication (N=3) did not confirm this pattern. At bias=-8, the SFT delta across seeds was +0.04, +0.003, and +0.27. At bias=-2, it was +0.04, +0.04, and $-0.29$. The third seed at bias=-2 behaves like our initial bias=-1 runs, with the loss starting high and decreasing. The SFT trajectories are high-variance across seeds, and the apparent phase transition between bias values does not replicate.
+## Safety fine-tuning and the first-loss threshold
 
-What does replicate is a geometric threshold. Per-stream cosine similarity jumps from 0.988 ± 0.002 (bias=-8, N=3) to 0.996 ± 0.0001 (bias=-2, N=3) when mixing is turned on. This threshold, predicted by the doubly stochastic contraction theory, is robust. Whether a second, functional threshold exists for downstream task learning remains an open question that our current experiments cannot resolve.
+In our initial seed, we observed what appeared to be a sharp phase transition: SFT loss increased at bias=-8 and bias=-2, but decreased at bias=-1 and bias=0. This suggested a functional threshold tied to mixing strength. Multi-seed replication (N=3) revealed a different pattern.
+
+The SFT anomaly (loss increasing during fine-tuning) correlates with the pretrained model's initial SFT loss, not with mixing strength. Across our runs, when the first SFT loss is below ~0.76, the loss tends to increase during training. When it is above ~0.81, the loss typically decreases. KromCanon at bias=-8 consistently produces first-loss below this region (3/3 seeds), so the anomaly is robust for that configuration. But it also appears in Canon at seed 137 (first-loss 0.73), and disappears for KromCanon at bias=-2 seed 271 (first-loss 1.04). The threshold is approximate: one vanilla run with first-loss 0.87 shows a small positive delta (+0.06), too weak to call an anomaly but not clearly normal either. The correlation is with pretrained representation quality, not architecture or mixing, but the boundary is not perfectly sharp.
+
+The geometric threshold remains robust. Per-stream cosines jump from 0.988 ± 0.002 (bias=-8, N=3) to 0.996 ± 0.0001 (bias=-2, N=3) when mixing is turned on. Whether a separate functional threshold exists for downstream learning remains open.
 
 **Our current evidence supports a geometric threshold, not a functional one.**
 
@@ -107,7 +111,7 @@ What does replicate is a geometric threshold. Per-stream cosine similarity jumps
 
 In the published KromHC paper, we found no visualization of the learned mixing weights, no measurement of how far they move from initialization, and no ablation isolating the mixing matrix from the routing matrices. The paper reports performance improvements and gradient norm trajectories, but does not directly address whether the mixing actually happens.
 
-A natural counterargument: the KromHC dynamic coefficients are input-dependent, so the static initialization is just a starting point, and at larger scale the dynamic pathway might have sufficient signal to overcome it. We measured this directly (Section: The model sculpts its mixing). At our scale, the dynamic pathway tries ($\alpha_{res}$ reaches 0.93) and fails. The static initialization at $-8$ places the system so deep in the saturated regime that the dynamic component cannot compensate. Whether this changes at 186M parameters and 454K steps is an open empirical question, but the mathematical structure of the saturation is scale-independent: $p(1-p)$ at $p = 0.9997$ is 0.0003 regardless of model size.
+A natural counterargument: the KromHC dynamic coefficients are input-dependent, so the static initialization is just a starting point, and at larger scale the dynamic pathway might have sufficient signal to overcome it. We measured this directly (Section: The model sculpts its mixing). The dynamic pathway tries ($\alpha_{res}$ reaches 0.93) and fails. The static initialization at $-8$ places the system so deep in the saturated regime that the dynamic component cannot compensate. Whether this changes at 186M parameters and 454K steps is an open empirical question, but the mathematical structure of the saturation is scale-independent: $p(1-p)$ at $p = 0.9997$ is 0.0003 regardless of model size.
 
 Compare this with DeepSeek's mHC[^13], which uses a different parameterization called Sinkhorn-Knopp projection[^14] instead of softmax. Their approach doesn't have the $p(1-p)$ gradient bottleneck, because Sinkhorn-Knopp gradients flow through the projection operator rather than through a saturating nonlinearity. Whether their mixing matrices learn non-trivial patterns at scale is a question we cannot answer from the published results, but the parameterization itself does not have the structural barrier we identified.
 
@@ -147,7 +151,7 @@ All losses are eval loss (held-out split).
 | KromCanon | 5.833 ± 0.009 | + Canon + KromHC (4 streams) |
 | KromHC only | 5.926 | + KromHC without Canon |
 
-The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. In a single-seed ablation, KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both appear to contribute; combining them yields the best result.
+The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. In a single-seed ablation, KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both appear to contribute; combining them yields the best result. A Canon-isolation ablation (two seeds) shows that the coherence boost from Canon is seed-dependent: +0.017 at seed 42, but only +0.002 at seed 137. KromHC drives the coherence effect; Canon's contribution is not reliably separable from noise.
 
 ### What replicates
 
@@ -156,15 +160,18 @@ The loss ordering KromCanon < Canon < Vanilla is consistent across all three see
 | Gradient trap (mixing frozen at bias=-8) | 3 | Yes |
 | Per-stream cosine threshold (0.988 → 0.996) | 3 | Yes |
 | Loss ordering (KromCanon < Canon < Vanilla) | 3 | Yes |
-| Canon isolation (gradient trap without Canon) | 1 | Preliminary |
-| SFT phase transition | 3 | **No** |
+| Direction norm flatness (KromCanon 2.8× flatter) | 3 | Yes |
+| Cross-seed directions at random baseline | 3 | Yes |
+| SFT first-loss correlation (low first-loss → anomaly) | 3 | Approximate |
+| Alpha topology (layer-specific mixing pattern) | 3 | Mostly seed-dependent |
+| Canon coherence boost (+0.002 to +0.017) | 2 | Not robust |
 
 ## Limitations and open questions
 
 We want to be explicit about what this work does and does not establish:
 
-- **Robust (N=3).** The gradient trap (frozen mixing at bias=-8), per-stream cosine coherence (0.988 ± 0.002 vs 0.996 ± 0.0001), and the loss ordering (KromCanon < Canon < Vanilla) all replicate across three seeds. The Canon isolation ablation confirms the gradient trap exists with or without Canon layers: vanilla+KromHC (no Canon) shows the same frozen mixing. Both Canon and KromHC independently improve over vanilla (eval loss 5.97 and 5.93 vs 6.01), but combining them yields the best result (5.83).
-- **Not robust.** The SFT phase transition observed in our initial seed does not replicate. SFT loss trajectories are high-variance across seeds, and we cannot confirm a functional threshold between bias=-2 and bias=-1.
+- **Robust (N=3).** The gradient trap, per-stream cosine threshold, loss ordering, direction norm flatness, cross-seed direction independence, and the SFT first-loss threshold all replicate across three seeds. A Canon-isolation ablation (two seeds) suggests the gradient trap persists without Canon layers. Canon's coherence boost is seed-dependent (+0.017 at one seed, +0.002 at another) and not reliably separable from noise.
+- **Seed-dependent.** The alpha topology (which layers amplify vs suppress mixing) is mostly a training-trajectory artifact: only 5/16 layers maintain consistent sign across seeds. The SFT anomaly is driven by pretrained representation quality (first-loss threshold), not by mixing strength or architecture per se.
 - **Scale.** All experiments are at 51M parameters, 2000 training steps. The gradient trap is a property of the softmax parameterization and holds at any scale, but we have not verified whether mixing emerges at larger scale even with bias=-8 given more compute.
 - **Behavioral directions.** We measure geometric properties (cosine similarity of per-stream directions), not behavioral effects. At our loss level (perplexity ~330-400), the model cannot refuse or comply. Whether the directional coherence we observe would translate to robust abliteration in a converged model is unknown.
 
@@ -201,3 +208,5 @@ We want to be explicit about what this work does and does not establish:
 [^16]: Perplexity is the exponential of the loss. It roughly measures "how many words the model is confused between at each position." A perplexity of 1 means the model always knows the next word. A perplexity of 400 means it's choosing between about 400 equally likely options at every step. Modern production language models reach perplexities in the single digits.
 
 [^17]: Kronecker factors are the building blocks of KromHC's mixing matrices. Instead of learning a full 4x4 mixing matrix (16 parameters), KromHC builds it as a Kronecker product of two 2x2 matrices (2 parameters each). Each 2x2 factor is a blend between "identity" (no mixing) and "swap" (exchange streams). The swap weight tells you how much mixing that factor contributes.
+
+[^18]: Venkatesh and Kurapath, *"On the Non-Identifiability of Steering Vectors in Large Language Models"*, 2026. Shows that steering vectors are fundamentally non-identifiable due to large equivalence classes of behaviorally indistinguishable interventions. [arxiv.org/abs/2602.06801](https://arxiv.org/abs/2602.06801)

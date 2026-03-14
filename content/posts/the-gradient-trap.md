@@ -101,7 +101,7 @@ Multi-seed replication (N=3) did not confirm this pattern. At bias=-8, the SFT d
 
 What does replicate is a geometric threshold. Per-stream cosine similarity jumps from 0.988 ± 0.002 (bias=-8, N=3) to 0.996 ± 0.0001 (bias=-2, N=3) when mixing is turned on. This threshold, predicted by the doubly stochastic contraction theory, is robust. Whether a second, functional threshold exists for downstream task learning remains an open question that our current experiments cannot resolve.
 
-Our current evidence supports a geometric threshold, not a functional one.
+**Our current evidence supports a geometric threshold, not a functional one.**
 
 ## A gap in the literature
 

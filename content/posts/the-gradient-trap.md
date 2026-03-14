@@ -47,13 +47,13 @@ The reason this matters is the softmax gradient. The gradient of a softmax outpu
 
 ![The softmax gradient p(1-p) is 0.0003 at bias=-8 vs 0.105 at bias=-2, a 313x difference that determines whether mixing can learn.](/kromcanon-gradient-curve.png)
 
-In principle, the dynamic component could push the swap probability high enough for real mixing to happen. At our scale, it doesn't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
+In principle, the dynamic component could push the swap probability high enough for nontrivial mixing to emerge. At our scale, it doesn't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
 
 ![Two panels showing swap probability per layer. Left (bias=-8): every layer is near 0% mixing; the model's dynamic component fights hard but can't push past 0.4%. Right (bias=-2): several layers reach meaningful mixing. L0/ffn hits 37%, L1/attn reaches 31%. Nontrivial mixing appears.](/kromcanon-trap-mechanism.png)
 
 At bias=-8, the static swap probability is 0.03%. The model fights hard, pushing $\alpha_{res}$ from 0.01 up to 0.92 in some layers. But even at maximum effort, the best achievable swap probability is about 0.4% (L2/attn). The model reaches for the dynamic lever and pulls it as hard as it can, but the static initialization is too deep. The steering wheel turns, but it's not connected to the wheels.
 
-At bias=-2, the static swap probability starts at 12%. Now the same dynamic component can push layers into real mixing territory. L0/ffn reaches 37% swap probability. Real mixing.
+At bias=-2, the static swap probability starts at 12%. Now the same dynamic component can push layers well beyond the identity regime. L0/ffn reaches 37% swap probability.
 
 This is the gradient trap: **initialize too deep in the saturated regime of a softmax, and the mixing path becomes effectively unlearnable.**
 

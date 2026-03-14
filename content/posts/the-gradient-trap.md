@@ -27,6 +27,8 @@ We wanted to see how each modification affects the model's internal structure. W
 
 At our scale, they don't. And a one-line initialization change revives them.
 
+This post reports three findings. First, KromHC's default initialization keeps the mixing matrices frozen near identity throughout training, a consequence of softmax gradient saturation. Second, a milder initialization revives nontrivial, layer-specific mixing. Third, once mixing is active, safety-contrast directions remain highly aligned across streams (cosine 0.996 ± 0.0001, N=3). The downstream effect of mixing on fine-tuning remains unresolved.
+
 ## One stream, four streams
 
 Modern transformers[^3] have a simple backbone. Each layer takes the current state, processes it, and adds the result back:

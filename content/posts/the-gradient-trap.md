@@ -153,7 +153,7 @@ All losses are eval loss (held-out split).
 | KromCanon | 5.833 ± 0.009 | + Canon + KromHC (4 streams) |
 | KromHC only | 5.923 ± 0.004 | + KromHC without Canon (N=3) |
 
-The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both contribute; combining them yields the best result. A Canon-isolation ablation (N=3) shows Canon consistently adds a small coherence boost to per-stream cosines (+0.013 ± 0.008, always positive). KromHC drives the bulk of the coherence; Canon refines it.
+The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both contribute; combining them yields the best result. A Canon-isolation ablation (N=3) shows Canon consistently adds a small coherence boost in per-layer pairwise analysis (+0.013 ± 0.008, always positive). KromHC drives the bulk of the coherence; Canon refines it.
 
 ### What replicates
 

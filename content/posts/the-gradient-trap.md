@@ -101,6 +101,8 @@ Multi-seed replication (N=3) did not confirm this pattern. At bias=-8, the SFT d
 
 What does replicate is a geometric threshold. Per-stream cosine similarity jumps from 0.988 ± 0.002 (bias=-8, N=3) to 0.996 ± 0.0001 (bias=-2, N=3) when mixing is turned on. This threshold, predicted by the doubly stochastic contraction theory, is robust. Whether a second, functional threshold exists for downstream task learning remains an open question that our current experiments cannot resolve.
 
+Our current evidence supports a geometric threshold, not a functional one.
+
 ## A gap in the literature
 
 In the published KromHC paper, we found no visualization of the learned mixing weights, no measurement of how far they move from initialization, and no ablation isolating the mixing matrix from the routing matrices. The paper reports performance improvements and gradient norm trajectories, but does not directly address whether the mixing actually happens.
@@ -154,7 +156,7 @@ The loss ordering KromCanon < Canon < Vanilla is consistent across all three see
 | Gradient trap (mixing frozen at bias=-8) | 3 | Yes |
 | Per-stream cosine threshold (0.988 → 0.996) | 3 | Yes |
 | Loss ordering (KromCanon < Canon < Vanilla) | 3 | Yes |
-| Canon isolation (gradient trap without Canon) | 1 | Yes |
+| Canon isolation (gradient trap without Canon) | 1 | Preliminary |
 | SFT phase transition | 3 | **No** |
 
 ## Limitations and open questions

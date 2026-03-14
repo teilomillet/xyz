@@ -21,7 +21,7 @@ That's what we found. We trained three GPT-2[^2] variants from scratch on Apple 
 
 Same data, same hyperparameters, same number of training steps. The only difference is architecture.
 
-![Three GPT-2 variants trained from scratch on FineWeb-Edu. All converge to similar loss levels: Vanilla 6.02, Canon 5.88, KromCanon 5.82. The comparison is fair.](/kromcanon-training-curves.png)
+![Four GPT-2 variants trained from scratch on FineWeb-Edu with N=3 seeds (N=2 for KromHC only). Mean curves with ± std bands. Eval loss: Vanilla 6.01, Canon 5.97, KromHC only 5.92, KromCanon 5.83. The ordering KromCanon < KromHC < Canon < Vanilla is consistent across all seeds.](/kromcanon-training-curves.png)
 
 We wanted to see how each modification affects the model's internal structure. What we stumbled onto instead is a question we did not find addressed in the KromHC paper: whether the mixing matrices actually learn to mix.
 

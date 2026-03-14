@@ -121,13 +121,45 @@ Our claim is precisely scoped: at small scale (51M parameters) with the softmax 
 
 Our primary contribution is architectural, not interpretability. The gradient trap, the routing vs mixing distinction, the topology sculpting, these hold at any loss level because they're about parameter dynamics, not text quality. The practical lesson: if you build a multi-stream model, do not assume the architecture you wrote is the architecture that trained. Inspect the learned mixing matrices. A model can have multi-stream equations on paper while behaving like redundant single-stream copies in practice.
 
-The bias sweep reveals a symmetry. At one extreme (bias=-8), streams don't mix: the architecture collapses to a single effective stream with four redundant copies. At the other extreme (bias=0), streams mix perfectly: the doubly stochastic contraction homogenizes representations, and the four streams converge to near-identical states[^11]. Both extremes lose the benefit of multi-stream diversity. The useful regime lies between them. Pretraining loss is lowest at bias=-2, but whether downstream fine-tuning requires stronger mixing remains unresolved by our current experiments.
+The bias sweep reveals a symmetry. At one extreme (bias=-8), streams don't mix: the architecture collapses to a single effective stream with four redundant copies. At the other extreme (bias=0), streams mix perfectly: the doubly stochastic contraction homogenizes representations, and the four streams converge to near-identical states[^11]. Both extremes lose the benefit of multi-stream diversity. The useful regime lies between them, though across three seeds, pretraining loss does not clearly favor one initialization over another (5.74 ± 0.08 at bias=-8 vs 5.78 ± 0.08 at bias=-2, overlapping error bars). The downstream effects of mixing strength remain an open question.
 
 If you're building multi-stream architectures, monitor your mixing matrices during training. Log $\|H^{res} - I\|$ at each checkpoint. If it stays near zero, your streams aren't mixing. Consider a milder initialization ($-2$ instead of $-8$), or switch to a parameterization that doesn't saturate.
 
 If you work on interpretability, our geometric finding suggests that multi-stream coupling preserves directional structure rather than fragmenting it. At our scale, a single direction extracted from any stream captures the same geometric signal. But we want to be clear: we tested whether the *preconditions* for abliteration hold under multi-stream coupling, not abliteration itself. Verifying the behavioral story requires a converged model, which is future work.
 
 If you use KromHC, the architecture is more capable than its default initialization reveals. It has three independent channels of influence: routing, static mixing, and dynamic mixing. But the default configuration only activates the first. A one-line initialization change unlocks the other two.
+
+## Summary of results
+
+### Bias sweep (KromCanon, 8L512D)
+
+| Init bias | Swap prob | Gradient $p(1-p)$ | Pretrain loss | Per-stream cosine | Seeds |
+|:---------:|:---------:|:-----------------:|:-------------:|:-----------------:|:-----:|
+| $-8$ | 0.03% | 0.0003 | 5.74 ± 0.08 | 0.988 ± 0.002 | 3 |
+| $-2$ | 12% | 0.105 | 5.78 ± 0.08 | 0.996 ± 0.000 | 3 |
+| $-1$ | 27% | 0.197 | 5.83 | 0.996 | 1 |
+| $0$ | 50% | 0.250 | 5.82 | 0.997 | 1 |
+
+### Architecture comparison (bias=-8, N=3)
+
+| Architecture | Pretrain loss | Description |
+|:------------|:-------------:|:------------|
+| Vanilla | 5.97 ± 0.07 | Standard GPT-2 |
+| Canon | 5.86 ± 0.02 | + causal convolution |
+| KromCanon | 5.74 ± 0.08 | + Canon + KromHC (4 streams) |
+| KromHC only | 5.95 | + KromHC without Canon |
+
+The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. KromHC without Canon does not improve over vanilla (5.95 vs 5.97), confirming that Canon is the ingredient driving the loss improvement, while KromHC provides the multi-stream structure.
+
+### What replicates
+
+| Finding | Seeds | Robust? |
+|:--------|:-----:|:-------:|
+| Gradient trap (mixing frozen at bias=-8) | 3 | Yes |
+| Per-stream cosine threshold (0.988 → 0.996) | 3 | Yes |
+| Loss ordering (KromCanon < Canon < Vanilla) | 3 | Yes |
+| Canon isolation (gradient trap without Canon) | 1 | Yes |
+| SFT phase transition | 3 | **No** |
 
 ## Limitations and open questions
 

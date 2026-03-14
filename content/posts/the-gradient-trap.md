@@ -1,7 +1,7 @@
 +++
 title = 'The Gradient Trap: KromHC multi-stream mixing'
 date = 2026-03-14
-draft = true
+draft = false
 description = 'We built a transformer with four parallel information streams designed to share information. They never did. Here is why, and what happened when we fixed it.'
 tags = ['kromhc', 'hyper-connections', 'multi-stream', 'transformers', 'interpretability', 'abliteration', 'kromcanon']
 math = true

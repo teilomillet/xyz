@@ -147,7 +147,7 @@ All losses are eval loss (held-out split).
 | KromCanon | 5.833 ± 0.009 | + Canon + KromHC (4 streams) |
 | KromHC only | 5.926 | + KromHC without Canon |
 
-The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both Canon and KromHC contribute; combining them yields the best result.
+The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. In a single-seed ablation, KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both appear to contribute; combining them yields the best result.
 
 ### What replicates
 

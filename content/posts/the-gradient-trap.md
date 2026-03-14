@@ -55,7 +55,7 @@ At bias=-8, the static swap probability is 0.03%. The model fights hard, pushing
 
 At bias=-2, the static swap probability starts at 12%. Now the same dynamic component can push layers into real mixing territory. L0/ffn reaches 37% swap probability. Real mixing.
 
-This is the gradient trap: **initialize too deep in the saturated regime of a softmax, and gradient-based learning struggles to escape.**
+This is the gradient trap: **initialize too deep in the saturated regime of a softmax, and the mixing path becomes effectively unlearnable.**
 
 ## Frozen vs alive
 

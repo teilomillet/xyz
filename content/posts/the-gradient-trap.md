@@ -11,8 +11,6 @@ math = true
     taglist = true
 +++
 
-> I designed the experiments, chose the hypotheses, ran the bias sweep, caught the SFT anomaly, and pushed back on every overclaim. Claude drafted the text, wrote code, and ran searches. The experimental thinking was mine; the execution was collaborative. I think this is what research looks like now.
-
 What if you built a neural network with four parallel information highways, designed to share information between them, and the sharing never happened?
 
 That's what we found. We trained three GPT-2[^2] variants from scratch on Apple Silicon, each adding one architectural idea on top of the previous:
@@ -174,7 +172,7 @@ We want to be explicit about what this work does and does not establish:
 
 ---
 
-*All experiments on a single Apple M4 Pro, 24GB. Three GPT-2 variants at ~51M parameters, trained from scratch on FineWeb-Edu[^15]. Code at [github.com/teilomillet/kromcanon](https://github.com/teilomillet/kromcanon).*
+*All experiments on a single Apple M4 Pro, 24GB. Three GPT-2 variants at ~51M parameters, trained from scratch on FineWeb-Edu[^15]. Code at [github.com/teilomillet/kromcanon](https://github.com/teilomillet/kromcanon). I designed the experiments, chose the hypotheses, ran the bias sweep, caught the SFT anomaly, and pushed back on every overclaim. Claude drafted the text, wrote code, and ran searches. The experimental thinking was mine; the execution was collaborative.*
 
 [^1]: Wang et al., *"KromHC: Kronecker-product Hyper-Connections"*, 2025. It replaces standard residual connections with multi-stream mixing using Kronecker-factorized doubly stochastic matrices. [arxiv.org/abs/2601.21579](https://arxiv.org/abs/2601.21579)
 

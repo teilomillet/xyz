@@ -55,7 +55,7 @@ The reason this matters is the softmax gradient. The gradient of a softmax outpu
 
 In principle, the dynamic component could push the swap probability high enough for real mixing to happen. At our scale, it doesn't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
 
-![Two panels showing swap probability per layer. Left (bias=-8): every layer is near 0% mixing; the model's dynamic component fights hard but can't push past 0.4%. Right (bias=-2): several layers reach meaningful mixing. L0/ffn hits 37%, L1/attn reaches 31%. The mixing path is active.](/kromcanon-trap-mechanism.png)
+![Two panels showing swap probability per layer. Left (bias=-8): every layer is near 0% mixing; the model's dynamic component fights hard but can't push past 0.4%. Right (bias=-2): several layers reach meaningful mixing. L0/ffn hits 37%, L1/attn reaches 31%. Nontrivial mixing appears.](/kromcanon-trap-mechanism.png)
 
 At bias=-8, the static swap probability is 0.03%. The model fights hard, pushing $\alpha_{res}$ from 0.01 up to 0.92 in some layers. But even at maximum effort, the best achievable swap probability is about 0.4% (L2/attn). The model reaches for the dynamic lever and pulls it as hard as it can, but the static initialization is too deep. The steering wheel turns, but it's not connected to the wheels.
 
@@ -67,9 +67,9 @@ This is the gradient trap: **initialize too deep in the saturated regime of a so
 
 The contrast is even more striking when you look at the raw Kronecker factor weights[^17] that make up the mixing matrices. Each layer has two factors, each with an "identity weight" and a "swap weight." At identity, all swap weights are zero. Any departure from zero means mixing is happening.
 
-![Side-by-side heatmap. Left panel (bias=-8): all 32 swap weights are 0.000 or 0.001, uniformly blank. Nothing moved. Right panel (bias=-2): swap weights range from 0.069 to 0.148 with visible variation across layers and factors, all cells saturated blue. The mixing path is active.](/kromcanon-hres-heatmap.png)
+![Side-by-side heatmap. Left panel (bias=-8): all 32 swap weights are 0.000 or 0.001, uniformly blank. Nothing moved. Right panel (bias=-2): swap weights range from 0.069 to 0.148 with visible variation across layers and factors, all cells saturated blue. The mixing path departs from identity.](/kromcanon-hres-heatmap.png)
 
-Left panel: blank white. Every single factor across all 16 layer/branch pairs stayed at its initialization value. Nothing moved. Right panel: variation everywhere. Some layers mix more (L0/attn: 0.129/0.129), others less (L1/ffn: 0.090/0.090), and the two factors within a layer can differ (L0/ffn: 0.100/0.148). The mixing path is active and layer-specific. One glance tells you what the gradient trap does.
+Left panel: blank white. Every single factor across all 16 layer/branch pairs stayed at its initialization value. Nothing moved. Right panel: variation everywhere. Some layers mix more (L0/attn: 0.129/0.129), others less (L1/ffn: 0.090/0.090), and the two factors within a layer can differ (L0/ffn: 0.100/0.148). The learned mixing becomes layer-specific. One glance tells you what the gradient trap does.
 
 ## The model sculpts its mixing
 

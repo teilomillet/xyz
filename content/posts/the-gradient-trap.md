@@ -31,17 +31,11 @@ This post reports three findings. First, KromHC's default initialization keeps t
 
 ## One stream, four streams
 
-Modern transformers[^3] have a simple backbone. Each layer takes the current state, processes it, and adds the result back:
+Modern transformers[^3] use a residual connection[^4] at every layer: $x = x + F(x)$. All information flows through one stream per token. A recent line of work proposes splitting that single stream into multiple parallel ones that exchange information at every layer through learned mixing matrices[^5].
 
-$$x = x + F(x)$$
+KromHC[^1] is one implementation. Four parallel streams replace the single residual stream. At each layer, a doubly stochastic mixing matrix $H^{res}$ controls how much information flows between streams. The matrix is constrained so that no stream can grow unboundedly or collapse to zero.
 
-This is called a residual connection[^4]. All information flows through one stream per token. Meaning, grammar, position, everything shares one vector. It works, but it's a bottleneck.
-
-A recent line of work proposes a natural extension: split that single stream into multiple parallel ones that can exchange information at every layer[^5]. Think of it as four parallel rivers with adjustable channels between them. Different rivers could specialize. One carries syntax, another meaning. At each layer, learned *mixing matrices* control how much water flows between rivers.
-
-KromHC is one implementation of this idea. Each channel between rivers has a dial, a learnable parameter that goes from "fully blocked" (no mixing) to "equal sharing" (full mixing). The dials are constrained so that no river can grow unboundedly or dry up. The Hyper-Connections paper states this explicitly: the system is *"initialized equivalent to Pre-Norm residual connections"*[^5], meaning at the start the four streams behave as if there were only one.
-
-At initialization, every dial is set to 0.03% open. Almost fully blocked. This is deliberate. The idea, standard in deep learning, is that a new architecture should start by behaving exactly like the old one. If you start with four independent streams that act as copies of a single stream, you get the same stable training dynamics that a normal transformer has. Then, gradually, the model is supposed to discover that it *can* open the channels and learn useful mixing patterns. The KromHC paper specifies this initialization explicitly (Section 5.1, `b_res = [0, -8]`, `alpha_res = 0.01`), and the Hyper-Connections paper uses the same principle. Everyone starts at identity. It makes sense for stability.
+At initialization, every mixing weight is set to 0.03% swap, 99.97% identity. The four streams behave as independent copies of a single stream. This identity-like start is natural for optimization stability: the model begins as a standard transformer and is supposed to gradually discover useful mixing patterns. The KromHC paper specifies this initialization explicitly (Section 5.1, `b_res = [0, -8]`, `alpha_res = 0.01`), and the Hyper-Connections paper[^5] uses the same principle.
 
 ## The dial that can't turn
 

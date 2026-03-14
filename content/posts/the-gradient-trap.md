@@ -35,7 +35,7 @@ Modern transformers[^3] use a residual connection[^4] at every layer: $x = x + F
 
 KromHC[^1] is one implementation. Four parallel streams replace the single residual stream. At each layer, a doubly stochastic mixing matrix $H^{res}$ controls how much information flows between streams. The matrix is constrained so that no stream can grow unboundedly or collapse to zero.
 
-At initialization, every mixing weight is set to 0.03% swap, 99.97% identity. The four streams behave as independent copies of a single stream. This identity-like start is natural for optimization stability: the model begins as a standard transformer and is supposed to gradually discover useful mixing patterns. The KromHC paper specifies this initialization explicitly (Section 5.1, `b_res = [0, -8]`, `alpha_res = 0.01`), and the Hyper-Connections paper[^5] uses the same principle.
+At initialization, every mixing weight is set to 0.03% swap, 99.97% identity. The four streams behave as independent copies of a single stream. This identity-like start is natural for optimization stability: the model begins as a standard transformer and is supposed to gradually discover useful mixing patterns. The KromHC reference implementation initializes `b_res = [0, -8]` and `alpha_res = 0.01`, and the Hyper-Connections paper[^5] uses the same near-identity principle.
 
 ## The dial that can't turn
 

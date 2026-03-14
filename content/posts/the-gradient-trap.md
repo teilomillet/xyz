@@ -1,8 +1,8 @@
 +++
-title = 'The Gradient Trap: Why KromHC Multi-Stream Mixing Never Learns'
+title = 'The Gradient Trap'
 date = 2026-03-14
 draft = true
-description = 'KromHC multi-stream residual connections are initialized too deep in softmax saturation for mixing to ever emerge. We identify the gradient trap, fix it with a one-line initialization change, and show that multi-stream coupling homogenizes rather than fragments representational directions.'
+description = 'We built a transformer with four parallel information streams designed to share information. They never did. Here is why, and what happened when we fixed it.'
 tags = ['kromhc', 'hyper-connections', 'multi-stream', 'transformers', 'interpretability', 'abliteration', 'kromcanon']
 math = true
 

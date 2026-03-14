@@ -19,9 +19,9 @@ That's what we found. We trained three GPT-2[^2] variants from scratch on Apple 
 - **Canon**, which adds causal convolution layers before attention[^8], a recent technique from Allen-Zhu's *Physics of Language Models* that gives each token a small window of local context before the global attention step.
 - **KromCanon**, which takes Canon and adds KromHC[^1] multi-stream residual connections on top, replacing the single information highway with four parallel ones that are supposed to learn to share information.
 
-Same data, same hyperparameters, same number of training steps. The only difference is architecture.
+Same data, same hyperparameters, same number of training steps. The only difference is architecture. A fourth variant, **KromHC only** (KromHC without Canon), isolates the contribution of each modification.
 
-![Four GPT-2 variants trained from scratch on FineWeb-Edu with N=3 seeds (N=2 for KromHC only). Mean curves with ± std bands. Eval loss: Vanilla 6.01, Canon 5.97, KromHC only 5.92, KromCanon 5.83. The ordering KromCanon < KromHC < Canon < Vanilla is consistent across all seeds.](/kromcanon-training-curves.png)
+![Training curves for all four variants, N=3 seeds (N=2 for KromHC only), mean ± std bands. Eval loss: Vanilla 6.01, Canon 5.97, KromHC only 5.92, KromCanon 5.83. Both Canon and KromHC independently improve over vanilla; combining them yields the best result.](/kromcanon-training-curves.png)
 
 We wanted to see how each modification affects the model's internal structure. What we stumbled onto instead is a question we did not find addressed in the KromHC paper: whether the mixing matrices actually learn to mix.
 

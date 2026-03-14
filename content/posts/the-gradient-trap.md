@@ -65,9 +65,9 @@ The contrast is even more striking when you look at the raw Kronecker factor wei
 
 Left panel: blank white. Every single factor across all 16 layer/branch pairs stayed at its initialization value. Nothing moved. Right panel: variation everywhere. Some layers mix more (L0/attn: 0.129/0.129), others less (L1/ffn: 0.090/0.090), and the two factors within a layer can differ (L0/ffn: 0.100/0.148). The learned mixing becomes layer-specific. One glance tells you what the gradient trap does.
 
-## The model sculpts its mixing
+## Layer-specific modulation under milder initialization
 
-The figure below shows the dynamic coefficient $\alpha_{res}$ (how hard the model tries to modulate mixing) against the best achievable swap probability (whether it succeeds). Each dot is one layer/branch pair.
+Once the initialization leaves the saturated regime, some layer-specific modulation emerges, but most of that topology is seed-dependent. The figure below shows the dynamic coefficient $\alpha_{res}$ (how hard the model tries to modulate mixing) against the best achievable swap probability (whether it succeeds). Each dot is one layer/branch pair.
 
 ![Scatter plot: learned alpha_res (effort) vs swap probability (result) at both initializations. Blue dots (bias=-8) cluster near 0% mixing, despite alpha reaching 0.93. Red dots (bias=-2) spread from 11% to 37%. The model tries equally hard at both; it only succeeds at one.](/kromcanon-alpha-topology.png)
 
@@ -121,7 +121,7 @@ Our claim is precisely scoped: at small scale (51M parameters) with the softmax 
 
 ## What this means
 
-Our primary contribution is architectural, not interpretability. The gradient trap, the routing vs mixing distinction, the topology sculpting, these hold at any loss level because they're about parameter dynamics, not text quality. The practical lesson: if you build a multi-stream model, do not assume the architecture you wrote is the architecture that trained. Inspect the learned mixing matrices. A model can have multi-stream equations on paper while behaving like redundant single-stream copies in practice.
+This work sits at the intersection of mechanistic interpretability, training dynamics, and safety-relevant representation geometry. Our primary contribution is architectural: under the default softmax-based initialization at our scale, multi-stream mixing remains effectively frozen. The gradient trap, the routing vs mixing distinction, and the layer-specific modulation all concern parameter dynamics, not text quality, and hold at any loss level. The practical lesson: if you build a multi-stream model, do not assume the architecture you wrote is the architecture that trained. Inspect the learned mixing matrices. A model can have multi-stream equations on paper while behaving like redundant single-stream copies in practice.
 
 The bias sweep reveals a symmetry. At one extreme (bias=-8), streams don't mix: the architecture collapses to a single effective stream with four redundant copies. At the other extreme (bias=0), streams mix perfectly: the doubly stochastic contraction homogenizes representations, and the four streams converge to near-identical states[^11]. Both extremes lose the benefit of multi-stream diversity. The useful regime lies between them, though across three seeds, eval loss does not clearly favor one initialization over another (5.833 ± 0.009 at bias=-8 vs 5.830 ± 0.004 at bias=-2). The downstream effects of mixing strength remain an open question.
 
@@ -151,9 +151,9 @@ All losses are eval loss (held-out split).
 | Vanilla | 6.010 ± 0.007 | Standard GPT-2 |
 | Canon | 5.966 ± 0.008 | + causal convolution |
 | KromCanon | 5.833 ± 0.009 | + Canon + KromHC (4 streams) |
-| KromHC only | 5.926 | + KromHC without Canon |
+| KromHC only | 5.923 ± 0.004 | + KromHC without Canon (N=3) |
 
-The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. In a single-seed ablation, KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both appear to contribute; combining them yields the best result. A Canon-isolation ablation (two seeds) shows that the coherence boost from Canon is seed-dependent: +0.017 at seed 42, but only +0.002 at seed 137. KromHC drives the coherence effect; Canon's contribution is not reliably separable from noise.
+The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both contribute; combining them yields the best result. A Canon-isolation ablation (N=3) shows Canon consistently adds a small coherence boost to per-stream cosines (+0.013 ± 0.008, always positive). KromHC drives the bulk of the coherence; Canon refines it.
 
 ### What replicates
 
@@ -167,13 +167,13 @@ The loss ordering KromCanon < Canon < Vanilla is consistent across all three see
 | Direction stability under ~8× SFT reduction | 1 | Preliminary |
 | SFT first-loss correlation (low first-loss → anomaly) | 3 | Approximate |
 | Alpha topology (layer-specific mixing pattern) | 3 | Mostly seed-dependent |
-| Canon coherence boost (+0.002 to +0.017) | 2 | Not robust |
+| Canon coherence boost (+0.013 ± 0.008) | 3 | Consistent, small |
 
 ## Limitations and open questions
 
 We want to be explicit about what this work does and does not establish:
 
-- **Robust (N=3).** The gradient trap, per-stream cosine threshold, loss ordering, direction norm flatness, and cross-seed direction independence all replicate across three seeds. A Canon-isolation ablation (two seeds) suggests the gradient trap persists without Canon layers. Canon's coherence boost is seed-dependent (+0.017 at one seed, +0.002 at another) and not reliably separable from noise.
+- **Robust (N=3).** The gradient trap, per-stream cosine threshold, loss ordering, direction norm flatness, and cross-seed direction independence all replicate across three seeds. A Canon-isolation ablation (N=3) confirms the gradient trap persists without Canon layers. Canon consistently adds a small coherence boost (+0.013 ± 0.008, always positive across three seeds).
 - **Approximate.** The SFT anomaly correlates with initial SFT loss rather than mixing strength, but the boundary between anomalous and normal convergence is not perfectly sharp. The alpha topology (which layers amplify vs suppress mixing) is mostly seed-dependent: only 5/16 layers maintain consistent sign across seeds.
 - **Scale.** All experiments are at 51M parameters, 2000 training steps. The gradient trap is a property of the softmax parameterization and holds at any scale, but we have not verified whether mixing emerges at larger scale even with bias=-8 given more compute.
 - **Behavioral directions.** We measure geometric properties (cosine similarity of per-stream directions), not behavioral effects. At our loss level (perplexity ~330-400), the model cannot refuse or comply. Whether the directional coherence we observe would translate to robust abliteration in a converged model is unknown.

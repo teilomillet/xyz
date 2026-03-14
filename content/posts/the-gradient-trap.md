@@ -1,0 +1,179 @@
++++
+title = 'The Gradient Trap: Why KromHC Multi-Stream Mixing Never Learns'
+date = 2026-03-14
+draft = true
+description = 'KromHC multi-stream residual connections are initialized too deep in softmax saturation for mixing to ever emerge. We identify the gradient trap, fix it with a one-line initialization change, and show that multi-stream coupling homogenizes rather than fragments representational directions.'
+tags = ['kromhc', 'hyper-connections', 'multi-stream', 'transformers', 'interpretability', 'abliteration', 'kromcanon']
+math = true
+
+[params]
+    nextprev = true
+    taglist = true
++++
+
+> I designed the experiments, chose the hypotheses, ran the bias sweep, caught the SFT anomaly, and pushed back on every overclaim. Claude drafted the text, wrote code, and ran searches. The experimental thinking was mine; the execution was collaborative. I think this is what research looks like now.
+
+What if you built a neural network with four parallel information highways, designed to share information between them, and the sharing never happened?
+
+That's what we found. We trained three GPT-2[^2] variants from scratch on Apple Silicon, each adding one architectural idea on top of the previous:
+
+- **Vanilla**, a standard GPT-2 baseline.
+- **Canon**, which adds causal convolution layers before attention[^8], a recent technique from Allen-Zhu's *Physics of Language Models* that gives each token a small window of local context before the global attention step.
+- **KromCanon**, which takes Canon and adds KromHC[^1] multi-stream residual connections on top, replacing the single information highway with four parallel ones that are supposed to learn to share information.
+
+Same data, same hyperparameters, same number of training steps. The only difference is architecture.
+
+![Three GPT-2 variants trained from scratch on FineWeb-Edu. All converge to similar loss levels: Vanilla 6.02, Canon 5.88, KromCanon 5.82. The comparison is fair.](/kromcanon-training-curves.png)
+
+We wanted to see how each modification affects the model's internal structure. What we stumbled onto instead is something the KromHC paper never reported: whether the mixing matrices actually learn to mix.
+
+They don't. But the fix is one line of code.
+
+## One stream, four streams
+
+Modern transformers[^3] have a simple backbone. Each layer takes the current state, processes it, and adds the result back:
+
+$$x = x + F(x)$$
+
+This is called a residual connection[^4]. All information flows through one stream per token. Meaning, grammar, position, everything shares one vector. It works, but it's a bottleneck.
+
+A recent line of work proposes a natural extension: split that single stream into multiple parallel ones that can exchange information at every layer[^5]. Think of it as four parallel rivers with adjustable channels between them. Different rivers could specialize. One carries syntax, another meaning. At each layer, learned *mixing matrices* control how much water flows between rivers.
+
+KromHC is one implementation of this idea. Each channel between rivers has a dial, a learnable parameter that goes from "fully blocked" (no mixing) to "equal sharing" (full mixing). The dials are constrained so that no river can grow unboundedly or dry up. The Hyper-Connections paper states this explicitly: the system is *"initialized equivalent to Pre-Norm residual connections"*[^5], meaning at the start the four streams behave as if there were only one.
+
+At initialization, every dial is set to 0.03% open. Almost fully blocked. This is deliberate. The idea, standard in deep learning, is that a new architecture should start by behaving exactly like the old one. If you start with four independent streams that act as copies of a single stream, you get the same stable training dynamics that a normal transformer has. Then, gradually, the model is supposed to discover that it *can* open the channels and learn useful mixing patterns. The KromHC paper specifies this initialization explicitly (Section 5.1, `b_res = [0, -8]`, `alpha_res = 0.01`), and the Hyper-Connections paper uses the same principle. Everyone starts at identity. It makes sense for stability.
+
+## The dial that can't turn
+
+The dial never turns.
+
+KromHC controls mixing through two pathways that feed into a softmax[^6] function. The first is a *static bias*, set to `[0, -8]` at initialization. The softmax converts this into two weights: an *identity weight* $p$ (how much each stream keeps its own information) and its complement, the *swap probability* $1-p$ (how much it exchanges with another stream). At a logit gap of 8, $p = 0.9997$ and swap probability is $0.03\%$, essentially zero. At our proposed gap of 2, $p = 0.881$ and swap probability is $12\%$. The second pathway is a *dynamic component* that modulates the mixing based on the input, controlled by a learned coefficient $\alpha_{res}$.
+
+The reason this matters is the softmax gradient. The gradient of a softmax output with respect to its input is $p(1-p)$. At the default initialization ($p = 0.9997$), the gradient is $0.9997 \times 0.0003 = 0.0003$. At our proposed initialization ($p = 0.881$), the gradient is $0.881 \times 0.119 = 0.105$. That is a 313x difference.
+
+![The softmax gradient p(1-p) is 0.0003 at bias=-8 vs 0.105 at bias=-2, a 313x difference that determines whether mixing can learn.](/kromcanon-gradient-curve.png)
+
+In principle, the dynamic component could push the swap probability high enough for real mixing to happen. In practice, it can't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
+
+![Two panels showing swap probability per layer. Left (bias=-8): every layer is near 0% mixing; the model's dynamic component fights hard but can't push past 0.4%. Right (bias=-2): several layers reach meaningful mixing. L0/ffn hits 37%, L1/attn reaches 31%. The architecture is alive.](/kromcanon-trap-mechanism.png)
+
+At bias=-8, the static swap probability is 0.03%. The model fights hard, pushing $\alpha_{res}$ from 0.01 up to 0.92 in some layers. But even at maximum effort, the best achievable swap probability is about 0.4% (L2/attn). The model reaches for the dynamic lever and pulls it as hard as it can, but the static initialization is too deep. The steering wheel turns, but it's not connected to the wheels.
+
+At bias=-2, the static swap probability starts at 12%. Now the same dynamic component can push layers into real mixing territory. L0/ffn reaches 37% swap probability. Real mixing.
+
+This is the gradient trap: **initialize too deep in the saturated regime of a softmax, and no amount of dynamic compensation can escape.**
+
+## Frozen vs alive
+
+The contrast is even more striking when you look at the raw Kronecker factor weights[^17] that make up the mixing matrices. Each layer has two factors, each with an "identity weight" and a "swap weight." At identity, all swap weights are zero. Any departure from zero means mixing is happening.
+
+![Side-by-side heatmap. Left panel (bias=-8): all 32 swap weights are 0.000 or 0.001, uniformly blank. Nothing moved. Right panel (bias=-2): swap weights range from 0.069 to 0.148 with visible variation across layers and factors, all cells saturated blue. The architecture is alive.](/kromcanon-hres-heatmap.png)
+
+Left panel: blank white. Every single factor across all 16 layer/branch pairs stayed at its initialization value. Nothing moved. Right panel: variation everywhere. Some layers mix more (L0/attn: 0.129/0.129), others less (L1/ffn: 0.090/0.090), and the two factors within a layer can differ (L0/ffn: 0.100/0.148). The architecture is alive and layer-specific. One glance tells you what the gradient trap does.
+
+## The model sculpts its mixing
+
+The figure below shows the dynamic coefficient $\alpha_{res}$ (how hard the model tries to modulate mixing) against the best achievable swap probability (whether it succeeds). Each dot is one layer/branch pair.
+
+![Scatter plot: learned alpha_res (effort) vs swap probability (result) at both initializations. Blue dots (bias=-8) cluster near 0% mixing, despite alpha reaching 0.93. Red dots (bias=-2) spread from 11% to 37%. The model tries equally hard at both; it only succeeds at one.](/kromcanon-alpha-topology.png)
+
+At bias=-8 (blue), every layer is trapped near 0% mixing. The model pushes $\alpha_{res}$ as high as 0.93 (L2/attn), maximum effort, but the best achievable swap probability is still 0.4%. At bias=-2 (red), the same mechanism works: L0/ffn reaches $\alpha = 0.84$ and achieves 37% swap probability. Some layers actively suppress mixing (L0/attn, L2/attn have negative $\alpha$), pulling their swap probability back *down*. The model builds a non-uniform topology: amplifying where mixing helps, suppressing where it doesn't.
+
+This pattern is stable from step 1000 to step 2000 (single seed; cross-seed robustness is pending). To our knowledge, nobody has visualized this for KromHC before. The KromHC paper reports performance improvements but does not show whether the mixing matrices learned non-trivial mixing, or what topology emerges when they do.
+
+## Directions survive multi-stream coupling
+
+The original motivation for this project was a question from interpretability research. Techniques like abliteration[^9] work by finding linear directions in a model's internal representations that correspond to specific behaviors. Arditi et al. showed that *"refusal is mediated by a single direction in the residual stream"* and that removing it disables safety behavior. This works beautifully in standard single-stream transformers.
+
+The worry with multi-stream architectures is intuitive: if a behavioral signal gets split across four rivers in four different orientations, the standard toolkit would break.
+
+We tested this by fine-tuning all three variants on safety-contrast data (helpful vs harmful prompt pairs) and extracting the direction that separates them in each stream independently. An important caveat: at our loss level (perplexity[^16] around 330 to 400, not coherent text), the model cannot actually refuse anything. What we're measuring is not a "refusal direction" but a *safety-contrast direction*, the geometric imprint that fine-tuning leaves on the representations. The direction is real. Whether it would control behavior in a converged model is a separate question we can't answer at this scale.
+
+With that caveat, the geometric finding is clean.
+
+![Per-stream direction cosines across four initialization regimes. Blue (bias=-8, identity): cosines 0.982-0.991, mean 0.987. Purple (bias=-2, mild mixing): 0.995-0.998, mean 0.996. Red (bias=-1, strong mixing): 0.990-0.998, mean 0.996. Black (bias=0, equal mixing): 0.995-0.999, mean 0.997. The main effect is binary: mixing OFF vs ON.](/kromcanon-cosines-vs-bias.png)
+
+At bias=-8 (no mixing), per-stream cosines sit around 0.982 to 0.991 (mean 0.987). In a 512-dimensional space, random directions would have cosine $\approx 0 \pm 0.044$, so these are clearly not noise. Fine-tuning creates a consistent geometric signal across all streams. But small differences accumulate independently since the streams can't talk to each other.
+
+The main effect is binary. Once mixing is turned on, cosines jump to a plateau: mean 0.996 at bias=-2, 0.996 at bias=-1, 0.997 at bias=0. Every mixing configuration produces substantially higher cosines than the identity baseline, but the three mixing regimes are essentially indistinguishable from each other. A concurrent paper[^11] proves this theoretically: doubly stochastic mixing matrices[^12] contract inter-stream differences at every layer, with contraction factor $|1-2s|$ where $s$ is the swap probability. At bias=-2 ($s = 0.12$), the contraction factor is 0.76 per mixing operation. Over 8 layers with two operations each: $0.76^{16} \approx 0.012$, meaning 98.8% of inter-stream difference is contracted away. At bias=-1 ($s = 0.27$), it is $0.46^{16} \approx 0$, essentially perfect contraction. The plateau is expected: once mixing exceeds $s \approx 0.1$, contraction saturates and additional mixing produces diminishing returns. Bias=0 ($s = 0.5$, perfect contraction by construction) confirms this, producing the highest mean cosines in the sweep (0.997).
+
+**Multi-stream coupling doesn't fragment representational directions. It homogenizes them.** Whether this carries over to actual behavioral directions in a converged model is the natural next experiment.
+
+## Safety fine-tuning flips at a threshold
+
+The most actionable finding came from the SFT loss trajectories across the bias sweep. We fine-tuned KromCanon at all four initializations on the same safety-contrast data and found a sharp phase transition.
+
+At bias=-8 and bias=-2 (swap probability near-zero and 12%), the SFT loss *increases* over 500 steps: 0.72 → 0.76. The model starts with low loss (it already partially recognizes the safety-contrast format from pretraining) but fine-tuning makes it slightly worse. The signal doesn't consolidate. Critically, bias=-8 and bias=-2 produce nearly identical SFT trajectories (starting points differ by 0.002, deltas by 0.004). The mixing that the heatmap shows as "alive" at bias=-2 is functionally irrelevant for downstream learning.
+
+At bias=-1 and bias=0 (swap probability 27% and 50%), the dynamics flip. The model starts at much higher SFT loss (1.03), the safety data looks harder, but learns rapidly, reaching 0.72 by step 500, a decrease of 0.31. The models at bias=-1 and bias=0 are also nearly identical to each other, suggesting the transition is discrete, not gradual.
+
+The threshold falls between 12% and 27% swap probability. Below it, mixing is architecturally present but behaviorally invisible. Above it, the model's representations change enough to produce qualitatively different learning dynamics. This maps onto the contraction theory: at 12% swap, the contraction factor per operation is 0.76, enough to synchronize direction cosines (previous section) but not enough to restructure representations. At 27%, the contraction factor drops to 0.46, and the model enters a regime where inter-stream coupling actively shapes what the model can learn.
+
+For practitioners building multi-stream architectures: if your SFT loss plateaus or increases during fine-tuning, insufficient mixing may be the cause. Monitor $\|H^{res} - I\|$ during pretraining and verify that your streams are mixing above the threshold before investing compute in downstream fine-tuning.
+
+## A gap in the literature
+
+In the published KromHC paper, we found no visualization of the learned mixing weights, no measurement of how far they move from initialization, and no ablation isolating the mixing matrix from the routing matrices. The paper reports performance improvements and gradient norm trajectories, but does not directly address whether the mixing actually happens.
+
+A natural counterargument: the KromHC dynamic coefficients are input-dependent, so the static initialization is just a starting point, and at larger scale the dynamic pathway might have sufficient signal to overcome it. We measured this directly (Section: The model sculpts its mixing). At our scale, the dynamic pathway tries ($\alpha_{res}$ reaches 0.93) and fails. The static initialization at $-8$ places the system so deep in the saturated regime that the dynamic component cannot compensate. Whether this changes at 186M parameters and 454K steps is an open empirical question, but the mathematical structure of the saturation is scale-independent: $p(1-p)$ at $p = 0.9997$ is 0.0003 regardless of model size.
+
+Compare this with DeepSeek's mHC[^13], which uses a different parameterization called Sinkhorn-Knopp projection[^14] instead of softmax. Their approach doesn't have the $p(1-p)$ gradient bottleneck, because Sinkhorn-Knopp gradients flow through the projection operator rather than through a saturating nonlinearity. Whether their mixing matrices learn non-trivial patterns at scale is a question we cannot answer from the published results, but the parameterization itself does not have the structural barrier we identified.
+
+Our claim is precisely scoped: at small scale (51M parameters) with the softmax parameterization and default initialization, multi-stream mixing never emerges. Whether it emerges at larger scale with the same parameterization remains unknown, because, to our knowledge, nobody has reported it.
+
+## What this means
+
+Our primary contribution is architectural, not interpretability. The gradient trap, the routing vs mixing distinction, the topology sculpting, these hold at any loss level because they're about parameter dynamics, not text quality.
+
+The bias sweep reveals a symmetry. At one extreme (bias=-8), streams don't mix: the architecture collapses to a single effective stream with four redundant copies. At the other extreme (bias=0), streams mix perfectly: the doubly stochastic contraction homogenizes representations, and the four streams converge to near-identical states[^11]. Both extremes lose the benefit of multi-stream diversity. The useful regime lies between them, but the optimal point depends on what you're optimizing: pretraining loss is lowest at bias=-2 (12% swap), while SFT dynamics only become healthy at bias=-1 (27% swap). The pretraining optimum and the fine-tuning optimum are not the same point. This tension is worth investigating at scale.
+
+If you're building multi-stream architectures, monitor your mixing matrices during training. Log $\|H^{res} - I\|$ at each checkpoint. If it stays near zero, your streams aren't mixing. Consider a milder initialization ($-2$ instead of $-8$), or switch to a parameterization that doesn't saturate. And verify that mixing is strong enough to matter: our SFT results show that 12% swap probability is architecturally alive but functionally indistinguishable from frozen.
+
+If you work on interpretability, our geometric finding suggests that multi-stream coupling preserves directional structure rather than fragmenting it. At our scale, a single direction extracted from any stream captures the same geometric signal. But we want to be clear: we tested whether the *preconditions* for abliteration hold under multi-stream coupling, not abliteration itself. Verifying the behavioral story requires a converged model, which is future work.
+
+If you use KromHC, the architecture is more capable than its default initialization reveals. It has three independent channels of influence: routing, static mixing, and dynamic mixing. But the default configuration only activates the first. A one-line initialization change unlocks the other two, though our results suggest bias=-1 rather than bias=-2 may be the more practical starting point.
+
+## Limitations and open questions
+
+We want to be explicit about what this work does not establish:
+
+- **Scale.** All experiments are at 51M parameters, 2000 training steps, single seed. The gradient trap is a property of the softmax parameterization and holds at any scale, but we have not verified whether mixing emerges at larger scale even with bias=-8 given more compute. The KromHC paper trains at 186M for 454K steps; our back-of-envelope estimate suggests mixing would still not emerge, but this remains unverified.
+- **Behavioral directions.** We measure geometric properties (cosine similarity of per-stream directions), not behavioral effects. At our loss level (perplexity ~330-400), the model cannot refuse or comply. Whether the directional coherence we observe would translate to robust abliteration in a converged model is unknown.
+- **Seed robustness.** The alpha topology and per-stream cosines are from a single seed (42). The topology is stable within training (step 1000 to 2000), but cross-seed robustness has not yet been tested.
+- **Canon interaction.** We have not isolated the Canon contribution. A vanilla+KromHC (no Canon) ablation would clarify whether Canon layers interact with the gradient trap.
+
+These are our next experiments. This post will be updated as results come in.
+
+---
+
+*All experiments on a single Apple M4 Pro, 24GB. Three GPT-2 variants at ~51M parameters, trained from scratch on FineWeb-Edu[^15]. Code at [github.com/teilomillet/kromcanon](https://github.com/teilomillet/kromcanon).*
+
+[^1]: Wang et al., *"KromHC: Kronecker-product Hyper-Connections"*, 2025. It replaces standard residual connections with multi-stream mixing using Kronecker-factorized doubly stochastic matrices. [arxiv.org/abs/2601.21579](https://arxiv.org/abs/2601.21579)
+
+[^2]: GPT-2 is an older, well-understood language model architecture released by OpenAI in 2019. We use it as a baseline because its behavior is thoroughly studied, making it easy to isolate the effects of architectural changes. [openai.com/research/better-language-models](https://openai.com/research/better-language-models)
+
+[^3]: Transformers are the architecture behind most modern AI language models (ChatGPT, Claude, Gemini, etc.). Introduced by Vaswani et al. in *"Attention Is All You Need"*, 2017. [arxiv.org/abs/1706.03762](https://arxiv.org/abs/1706.03762)
+
+[^4]: A residual connection is the `x = x + F(x)` pattern. Instead of replacing the input with the output of a layer, you *add* the layer's output to the input. This lets information flow directly through the network without being forced through every transformation, which makes deep networks much easier to train. Introduced by He et al., *"Deep Residual Learning"*, 2015. [arxiv.org/abs/1512.03385](https://arxiv.org/abs/1512.03385)
+
+[^5]: Zhu et al., *"Hyper-Connections"*, 2024. The original proposal for multi-stream residual connections, where multiple parallel streams replace the single residual stream and mix at every layer. [arxiv.org/abs/2409.19606](https://arxiv.org/abs/2409.19606)
+
+[^6]: Softmax is a function that takes a list of raw numbers and converts them into probabilities that sum to 1. For example, softmax([2, 1]) gives roughly [0.73, 0.27]. It's used everywhere in neural networks, from attention mechanisms to classification heads.
+
+[^8]: Canon layers are causal convolution layers from Allen-Zhu's *"Physics of Language Models, Part 4.1"*. They add local token mixing before attention, improving reasoning depth with minimal parameter overhead (~0.5%). [arxiv.org/abs/2512.17351](https://arxiv.org/abs/2512.17351)
+
+[^9]: Arditi et al., *"Refusal in Language Models Is Mediated by a Single Direction"*, 2024. They showed that safety-trained language models encode refusal behavior along a single linear direction in their internal representations, and that removing this direction disables refusal. [arxiv.org/abs/2406.11717](https://arxiv.org/abs/2406.11717)
+
+[^11]: Liu, *"The Homogeneity Trap: Spectral Collapse in Doubly-Stochastic Deep Networks"*, 2026. This paper proves that doubly stochastic mixing suppresses representational diversity across streams, a phenomenon they call spectral collapse. [arxiv.org/abs/2601.02080](https://arxiv.org/abs/2601.02080)
+
+[^12]: A doubly stochastic matrix is a square matrix where every row sums to 1 and every column sums to 1. This constraint guarantees that the mixing is "fair": no stream receives more total input than others, and no stream's contribution is over- or under-weighted. It also guarantees that the total magnitude of the streams is preserved through the mixing.
+
+[^13]: Xie et al. (DeepSeek), *"mHC: Manifold-Constrained Hyper-Connections"*, 2025. Scales multi-stream residual connections using Sinkhorn-Knopp projection instead of softmax to enforce doubly stochastic mixing. [arxiv.org/abs/2512.24880](https://arxiv.org/abs/2512.24880)
+
+[^14]: Sinkhorn-Knopp projection is a method for turning any matrix into a doubly stochastic one by alternately normalizing rows and columns. Unlike softmax parameterization, the gradients flow through the projection operator and don't suffer from the $p(1-p)$ saturation problem.
+
+[^15]: FineWeb-Edu is a large, high-quality dataset of educational web text curated by HuggingFace. We used it for pretraining because it provides clean, diverse text at scale. [huggingface.co/datasets/HuggingFaceFW/fineweb-edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu)
+
+[^16]: Perplexity is the exponential of the loss. It roughly measures "how many words the model is confused between at each position." A perplexity of 1 means the model always knows the next word. A perplexity of 400 means it's choosing between about 400 equally likely options at every step. Modern production language models reach perplexities in the single digits.
+
+[^17]: Kronecker factors are the building blocks of KromHC's mixing matrices. Instead of learning a full 4x4 mixing matrix (16 parameters), KromHC builds it as a Kronecker product of two 2x2 matrices (2 parameters each). Each 2x2 factor is a blend between "identity" (no mixing) and "swap" (exchange streams). The swap weight tells you how much mixing that factor contributes.

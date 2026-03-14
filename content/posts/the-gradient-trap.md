@@ -25,9 +25,9 @@ Same data, same hyperparameters, same number of training steps. The only differe
 
 ![Three GPT-2 variants trained from scratch on FineWeb-Edu. All converge to similar loss levels: Vanilla 6.02, Canon 5.88, KromCanon 5.82. The comparison is fair.](/kromcanon-training-curves.png)
 
-We wanted to see how each modification affects the model's internal structure. What we stumbled onto instead is something the KromHC paper never reported: whether the mixing matrices actually learn to mix.
+We wanted to see how each modification affects the model's internal structure. What we stumbled onto instead is a question we did not find addressed in the KromHC paper: whether the mixing matrices actually learn to mix.
 
-They don't. But the fix is one line of code.
+At our scale, they don't. And a one-line initialization change revives them.
 
 ## One stream, four streams
 
@@ -45,7 +45,7 @@ At initialization, every dial is set to 0.03% open. Almost fully blocked. This i
 
 ## The dial that can't turn
 
-The dial never turns.
+At our scale, the dial never turns.
 
 KromHC controls mixing through two pathways that feed into a softmax[^6] function. The first is a *static bias*, set to `[0, -8]` at initialization. The softmax converts this into two weights: an *identity weight* $p$ (how much each stream keeps its own information) and its complement, the *swap probability* $1-p$ (how much it exchanges with another stream). At a logit gap of 8, $p = 0.9997$ and swap probability is $0.03\%$, essentially zero. At our proposed gap of 2, $p = 0.881$ and swap probability is $12\%$. The second pathway is a *dynamic component* that modulates the mixing based on the input, controlled by a learned coefficient $\alpha_{res}$.
 
@@ -53,7 +53,7 @@ The reason this matters is the softmax gradient. The gradient of a softmax outpu
 
 ![The softmax gradient p(1-p) is 0.0003 at bias=-8 vs 0.105 at bias=-2, a 313x difference that determines whether mixing can learn.](/kromcanon-gradient-curve.png)
 
-In principle, the dynamic component could push the swap probability high enough for real mixing to happen. In practice, it can't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
+In principle, the dynamic component could push the swap probability high enough for real mixing to happen. At our scale, it doesn't. The figure below shows the swap probability for every layer, at both initializations: the faint bar is what the static bias alone gives, and the solid bar is the best the model can achieve with dynamics on top.
 
 ![Two panels showing swap probability per layer. Left (bias=-8): every layer is near 0% mixing; the model's dynamic component fights hard but can't push past 0.4%. Right (bias=-2): several layers reach meaningful mixing. L0/ffn hits 37%, L1/attn reaches 31%. The architecture is alive.](/kromcanon-trap-mechanism.png)
 
@@ -61,7 +61,7 @@ At bias=-8, the static swap probability is 0.03%. The model fights hard, pushing
 
 At bias=-2, the static swap probability starts at 12%. Now the same dynamic component can push layers into real mixing territory. L0/ffn reaches 37% swap probability. Real mixing.
 
-This is the gradient trap: **initialize too deep in the saturated regime of a softmax, and no amount of dynamic compensation can escape.**
+This is the gradient trap: **initialize too deep in the saturated regime of a softmax, and gradient-based learning struggles to escape.**
 
 ## Frozen vs alive
 
@@ -97,7 +97,7 @@ At bias=-8 (no mixing), per-stream cosines sit around 0.982 to 0.991 (mean 0.987
 
 The main effect is binary. Once mixing is turned on, cosines jump to a plateau: mean 0.996 at bias=-2, 0.996 at bias=-1, 0.997 at bias=0. Every mixing configuration produces substantially higher cosines than the identity baseline, but the three mixing regimes are essentially indistinguishable from each other. A concurrent paper[^11] proves this theoretically: doubly stochastic mixing matrices[^12] contract inter-stream differences at every layer, with contraction factor $|1-2s|$ where $s$ is the swap probability. At bias=-2 ($s = 0.12$), the contraction factor is 0.76 per mixing operation. Over 8 layers with two operations each: $0.76^{16} \approx 0.012$, meaning 98.8% of inter-stream difference is contracted away. At bias=-1 ($s = 0.27$), it is $0.46^{16} \approx 0$, essentially perfect contraction. The plateau is expected: once mixing exceeds $s \approx 0.1$, contraction saturates and additional mixing produces diminishing returns. Bias=0 ($s = 0.5$, perfect contraction by construction) confirms this, producing the highest mean cosines in the sweep (0.997).
 
-**Multi-stream coupling doesn't fragment representational directions. It homogenizes them.** Whether this carries over to actual behavioral directions in a converged model is the natural next experiment.
+**At our scale, multi-stream coupling doesn't fragment representational directions. It homogenizes them.** Whether this carries over to actual behavioral directions in a converged model is the natural next experiment.
 
 ## Safety fine-tuning flips at a threshold
 

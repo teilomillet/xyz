@@ -27,7 +27,7 @@ We wanted to see how each modification affects the model's internal structure. W
 
 At our scale, they don't. And a one-line initialization change revives them.
 
-This post reports three findings. First, KromHC's default initialization keeps the mixing matrices frozen near identity throughout training, a consequence of softmax gradient saturation. Second, a milder initialization revives nontrivial mixing. Third, once mixing is active, safety-contrast directions remain highly aligned across streams (cosine 0.996 ± 0.0001, N=3), though different training runs discover unrelated directions. The downstream fine-tuning anomaly appears to correlate more with initial SFT loss than with mixing strength, though this boundary is approximate.
+This post reports three findings. First, KromHC's default initialization keeps the mixing matrices frozen near identity throughout training, a consequence of softmax gradient saturation. Second, a milder initialization revives nontrivial mixing. Third, once mixing is active, safety-contrast directions remain highly aligned across streams (cosine 0.994 ± 0.001, N=3), though different training runs discover unrelated directions. The downstream fine-tuning anomaly appears to correlate more with initial SFT loss than with mixing strength, though this boundary is approximate.
 
 ## One stream, four streams
 
@@ -85,27 +85,23 @@ We tested this by fine-tuning all three variants on safety-contrast data (helpfu
 
 With that caveat, the geometric finding is clean.
 
-![Per-stream direction cosines across four initialization regimes. Blue (bias=-8, identity): cosines 0.982-0.991, mean 0.987. Purple (bias=-2, mild mixing): 0.995-0.998, mean 0.996. Red (bias=-1, strong mixing): 0.990-0.998, mean 0.996. Black (bias=0, equal mixing): 0.995-0.999, mean 0.997. The main effect is binary: mixing OFF vs ON.](/kromcanon-cosines-vs-bias.png)
+![Per-stream direction cosines across four initialization regimes (N=3 with error bars for bias=-8 and bias=-2). The main effect is thresholded: mixing OFF (0.974) vs ON (0.994).](/kromcanon-cosines-vs-bias.png)
 
-At bias=-8 (no mixing), per-stream cosines sit around 0.982 to 0.991 (mean 0.988 ± 0.002 across three seeds). In a 512-dimensional space, random directions would have cosine $\approx 0 \pm 0.044$, so these are clearly not noise. Fine-tuning creates a consistent geometric signal across all streams. But small differences accumulate independently since the streams can't talk to each other.
+At bias=-8 (no mixing), per-stream cosines average 0.974 ± 0.005 across three seeds. In a 512-dimensional space, random directions would have cosine $\approx 0 \pm 0.044$, so these are clearly not noise. Fine-tuning creates a consistent geometric signal across all streams. But small differences accumulate independently since the streams can't talk to each other.
 
-At our scale, the main effect appears thresholded rather than smoothly graded. Once mixing is turned on, cosines jump to a plateau: mean 0.996 ± 0.0001 at bias=-2 (three seeds), 0.996 at bias=-1, 0.997 at bias=0. Every mixing configuration produces substantially higher cosines than the identity baseline, but the three mixing regimes are essentially indistinguishable from each other. A concurrent paper[^11] proves this theoretically: doubly stochastic mixing matrices[^12] contract inter-stream differences at every layer, with contraction factor $|1-2s|$ where $s$ is the swap probability. At bias=-2 ($s = 0.12$), the contraction factor is 0.76 per mixing operation. Over 8 layers with two operations each: $0.76^{16} \approx 0.012$, meaning 98.8% of inter-stream difference is contracted away. At bias=-1 ($s = 0.27$), it is $0.46^{16} \approx 0$, essentially perfect contraction. The plateau is expected: once mixing exceeds $s \approx 0.1$, contraction saturates and additional mixing produces diminishing returns. Bias=0 ($s = 0.5$, perfect contraction by construction) confirms this, producing the highest mean cosines in the sweep (0.997).
+At our scale, the main effect appears thresholded rather than smoothly graded. Once mixing is turned on, cosines jump to a plateau: mean 0.994 ± 0.001 at bias=-2 (three seeds), 0.994 at bias=-1, 0.995 at bias=0. Every mixing configuration produces substantially higher cosines than the identity baseline, but the three mixing regimes are essentially indistinguishable from each other. A concurrent paper[^11] proves this theoretically: doubly stochastic mixing matrices[^12] contract inter-stream differences at every layer, with contraction factor $|1-2s|$ where $s$ is the swap probability. At bias=-2 ($s = 0.12$), the contraction factor is 0.76 per mixing operation. Over 8 layers with two operations each: $0.76^{16} \approx 0.012$, meaning 98.8% of inter-stream difference is contracted away. At bias=-1 ($s = 0.27$), it is $0.46^{16} \approx 0$, essentially perfect contraction. The plateau is expected: once mixing exceeds $s \approx 0.1$, contraction saturates and additional mixing produces diminishing returns. Bias=0 ($s = 0.5$, perfect contraction by construction) confirms this, producing the highest mean cosines in the sweep (0.995).
 
 **Multi-stream coupling doesn't fragment representational directions. It homogenizes them.** Whether this carries over to actual behavioral directions in a converged model is the natural next experiment.
 
-Two additional geometric observations. First, KromCanon's direction norm profile is 2.8× flatter than vanilla's across layers (norm range 0.029 ± 0.003 vs 0.082 ± 0.009, N=3, non-overlapping standard errors). Multi-stream coupling distributes the safety-contrast signal evenly across layers rather than concentrating it. This is a pure KromHC effect: a Canon-isolation ablation shows the same flatness without Canon layers.
-
-Second, the directions are robust to SFT budget. With ~8× fewer steps (60 vs 500, data exhausted) and 10× fewer examples, the extracted directions maintain cosine similarity of 0.84 (KromCanon), 0.80 (vanilla), and 0.72 (Canon) with the full-budget directions. KromCanon's multi-stream structure produces the most stable directions; Canon's local convolutions produce the least stable. The main geometric findings do not appear to depend on SFT saturation.
-
-Third, directions extracted from different architectures or different seeds are unrelated. Cross-architecture direction cosines (vanilla vs canon vs KromCanon) average |cos| ≈ 0.04 across N=3 seeds, indistinguishable from random in 512 dimensions. Cross-seed cosines within the same architecture are equally random. Each training run discovers its own safety-contrast direction, consistent with the non-identifiability results of Venkatesh and Kurapath[^18].
+An additional geometric observation: directions extracted from different architectures or different seeds are unrelated. Cross-architecture direction cosines (vanilla vs canon vs KromCanon) average |cos| ≈ 0.03 across N=3 seeds, indistinguishable from random in 512 dimensions. Cross-seed cosines within the same architecture are equally random. Each training run discovers its own safety-contrast direction, consistent with the non-identifiability results of Venkatesh and Kurapath[^18].
 
 ## Safety fine-tuning and first-loss effects
 
 In our initial seed, we observed what appeared to be a sharp phase transition: SFT loss increased at bias=-8 and bias=-2, but decreased at bias=-1 and bias=0. This suggested a functional threshold tied to mixing strength. Multi-seed replication (N=3) revealed a different pattern.
 
-The SFT anomaly (loss increasing during fine-tuning) correlates with the pretrained model's initial SFT loss, not with mixing strength. Across our runs, when the first SFT loss is below ~0.76, the loss tends to increase during training. When it is above ~0.81, the loss typically decreases. KromCanon at bias=-8 consistently produces first-loss below this region (3/3 seeds), so the anomaly is robust for that configuration. But it also appears in Canon at seed 137 (first-loss 0.73), and disappears for KromCanon at bias=-2 seed 271 (first-loss 1.04). The threshold is approximate: one vanilla run with first-loss 0.87 shows a small positive delta (+0.06), too weak to call an anomaly but not clearly normal either. The correlation is with pretrained representation quality, not architecture or mixing, but the boundary is not perfectly sharp.
+The SFT anomaly (loss increasing during fine-tuning) correlates with the pretrained model's initial SFT loss, not with mixing strength. At bias=-8, one seed shows strong anomaly (first-loss 0.695, delta +0.253), one is flat (first-loss 0.752, delta +0.004), and one converges normally (first-loss 0.783, delta -0.175). The pattern is consistent with a first-loss threshold around 0.75: below it, models tend to overshoot during SFT; above it, they converge normally. But the boundary is approximate and the sample is small.
 
-The geometric threshold remains robust. Per-stream cosines jump from 0.988 ± 0.002 (bias=-8, N=3) to 0.996 ± 0.0001 (bias=-2, N=3) when mixing is turned on. Whether a separate functional threshold exists for downstream learning remains open.
+The geometric threshold remains robust. Per-stream cosines jump from 0.974 ± 0.005 (bias=-8, N=3) to 0.994 ± 0.001 (bias=-2, N=3) when mixing is turned on. Whether a separate functional threshold exists for downstream learning remains open.
 
 **Our current evidence supports a geometric threshold, not a functional one.**
 
@@ -123,7 +119,7 @@ Our claim is precisely scoped: at small scale (51M parameters) with the softmax 
 
 This work sits at the intersection of mechanistic interpretability, training dynamics, and safety-relevant representation geometry. Our primary contribution is architectural: under the default softmax-based initialization at our scale, multi-stream mixing remains effectively frozen. The gradient trap, the routing vs mixing distinction, and the layer-specific modulation all concern parameter dynamics, not text quality, and hold at any loss level. The practical lesson: if you build a multi-stream model, do not assume the architecture you wrote is the architecture that trained. Inspect the learned mixing matrices. A model can have multi-stream equations on paper while behaving like redundant single-stream copies in practice.
 
-The bias sweep reveals a symmetry. At one extreme (bias=-8), streams don't mix: the architecture collapses to a single effective stream with four redundant copies. At the other extreme (bias=0), streams mix perfectly: the doubly stochastic contraction homogenizes representations, and the four streams converge to near-identical states[^11]. Both extremes lose the benefit of multi-stream diversity. The useful regime lies between them, though across three seeds, eval loss does not clearly favor one initialization over another (5.833 ± 0.009 at bias=-8 vs 5.830 ± 0.004 at bias=-2). The downstream effects of mixing strength remain an open question.
+The bias sweep reveals a symmetry. At one extreme (bias=-8), streams don't mix: the architecture collapses to a single effective stream with four redundant copies. At the other extreme (bias=0), streams mix perfectly: the doubly stochastic contraction homogenizes representations, and the four streams converge to near-identical states[^11]. Both extremes lose the benefit of multi-stream diversity. The useful regime lies between them, though across three seeds, eval loss does not clearly favor one initialization over another (5.836 ± 0.006 at bias=-8 vs 5.834 ± 0.004 at bias=-2). The downstream effects of mixing strength remain an open question.
 
 If you're building multi-stream architectures, monitor your mixing matrices during training. Log $\|H^{res} - I\|$ at each checkpoint. If it stays near zero, your streams aren't mixing. Consider a milder initialization ($-2$ instead of $-8$), or switch to a parameterization that doesn't saturate.
 
@@ -139,42 +135,39 @@ All losses are eval loss (held-out split).
 
 | Init bias | Swap prob | Gradient $p(1-p)$ | Eval loss | Per-stream cosine | Seeds |
 |:---------:|:---------:|:-----------------:|:---------:|:-----------------:|:-----:|
-| $-8$ | 0.03% | 0.0003 | 5.833 ± 0.009 | 0.988 ± 0.002 | 3 |
-| $-2$ | 12% | 0.105 | 5.830 ± 0.004 | 0.996 ± 0.000 | 3 |
-| $-1$ | 27% | 0.197 | 5.837 | 0.996 | 1 |
-| $0$ | 50% | 0.250 | 5.830 | 0.997 | 1 |
+| $-8$ | 0.03% | 0.0003 | 5.836 ± 0.006 | 0.974 ± 0.005 | 3 |
+| $-2$ | 12% | 0.105 | 5.834 ± 0.004 | 0.994 ± 0.001 | 3 |
+| $-1$ | 27% | 0.197 | 5.829 | 0.994 | 1 |
+| $0$ | 50% | 0.250 | 5.828 | 0.995 | 1 |
 
 ### Architecture comparison (bias=-8, N=3)
 
 | Architecture | Eval loss | Description |
 |:------------|:---------:|:------------|
-| Vanilla | 6.010 ± 0.007 | Standard GPT-2 |
-| Canon | 5.966 ± 0.008 | + causal convolution |
-| KromCanon | 5.833 ± 0.009 | + Canon + KromHC (4 streams) |
-| KromHC only | 5.923 ± 0.004 | + KromHC without Canon (N=3) |
+| Vanilla | 6.016 ± 0.003 | Standard GPT-2 |
+| Canon | 5.891 ± 0.003 | + causal convolution (ABCD) |
+| KromCanon | 5.836 ± 0.006 | + Canon + KromHC (4 streams) |
 
-The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. KromHC without Canon improves over vanilla (eval loss 5.93 vs 6.01), but less than Canon alone (5.97). Both contribute; combining them yields the best result. A Canon-isolation ablation (N=3) shows Canon consistently adds a small coherence boost in per-layer pairwise analysis (+0.013 ± 0.008, always positive). KromHC drives the bulk of the coherence; Canon refines it.
+The loss ordering KromCanon < Canon < Vanilla is consistent across all three seeds. Canon-ABCD (with Kaiming initialization and all four placement positions) accounts for most of the improvement over vanilla; KromHC adds a smaller further gain. Our FFN uses GELU rather than SwiGLU, so Canon-D placement may behave differently under gated activations.
 
 ### What replicates
 
 | Finding | Seeds | Robust? |
 |:--------|:-----:|:-------:|
 | Gradient trap (mixing frozen at bias=-8) | 3 | Yes |
-| Per-stream cosine threshold (0.988 → 0.996) | 3 | Yes |
+| Per-stream cosine threshold (0.974 → 0.994) | 3 | Yes |
 | Loss ordering (KromCanon < Canon < Vanilla) | 3 | Yes |
-| Direction norm flatness (KromCanon 2.8× flatter) | 3 | Yes |
 | Cross-seed directions at random baseline | 3 | Yes |
-| Direction stability under ~8× SFT reduction | 1 | Preliminary |
 | SFT first-loss correlation (low first-loss → anomaly) | 3 | Approximate |
 | Alpha topology (layer-specific mixing pattern) | 3 | Mostly seed-dependent |
-| Canon coherence boost (+0.013 ± 0.008) | 3 | Consistent, small |
 
 ## Limitations and open questions
 
 We want to be explicit about what this work does and does not establish:
 
-- **Robust (N=3).** The gradient trap, per-stream cosine threshold, loss ordering, direction norm flatness, and cross-seed direction independence all replicate across three seeds. A Canon-isolation ablation (N=3) confirms the gradient trap persists without Canon layers. Canon consistently adds a small coherence boost (+0.013 ± 0.008, always positive across three seeds).
-- **Approximate.** The SFT anomaly correlates with initial SFT loss rather than mixing strength, but the boundary between anomalous and normal convergence is not perfectly sharp. The alpha topology (which layers amplify vs suppress mixing) is mostly seed-dependent: only 5/16 layers maintain consistent sign across seeds.
+- **Robust (N=3).** The gradient trap, per-stream cosine threshold (0.974 → 0.994), loss ordering (KromCanon < Canon < Vanilla), and cross-seed direction independence all replicate across three seeds.
+- **Approximate.** The SFT anomaly correlates with initial SFT loss rather than mixing strength, but the boundary between anomalous and normal convergence is not perfectly sharp (1/3 seeds shows anomaly at bias=-8, vs 3/3 with the prior Canon-AB implementation). The alpha topology (which layers amplify vs suppress mixing) is mostly seed-dependent.
+- **Implementation note.** Canon uses ABCD placement with Kaiming initialization and GELU activation. The original paper specifies SwiGLU; Canon-D placement may behave differently under gated activations.
 - **Scale.** All experiments are at 51M parameters, 2000 training steps. The gradient trap is a property of the softmax parameterization and holds at any scale, but we have not verified whether mixing emerges at larger scale even with bias=-8 given more compute.
 - **Behavioral directions.** We measure geometric properties (cosine similarity of per-stream directions), not behavioral effects. At our loss level (perplexity ~330-400), the model cannot refuse or comply. Whether the directional coherence we observe would translate to robust abliteration in a converged model is unknown.
 

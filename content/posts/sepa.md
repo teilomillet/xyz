@@ -3,8 +3,8 @@ title = 'Episode Selection Meets Token Attribution: Composing Credit Assignment 
 date = 2026-02-26
 originalDate = 2026-02-15
 draft = false
-description = 'A compositional credit assignment framework for RL reasoning: SEPA pooling produced a null result across 14 runs at 4B. A 30B 3-seed campaign shows +2.60pp with lower variance but insufficient power. A predictive variance experiment proves no function of a single logprob can approximate Shannon entropy — the fundamental bottleneck is logprob-only access, not the reshaping mechanism.'
-tags = ['reinforcement-learning', 'credit-assignment', 'reasoning', 'SEPA', 'MaxRL', 'GTPO']
+description = 'A compositional credit assignment framework for RL reasoning. SEPA pooling and Delight Policy Gradient gating both produced null results across 100+ runs, 4 model families, and 11 campaigns. Token-level credit assignment — whether soft (5% gradient direction change) or hard (63%) — does not accelerate RL with binary rewards. The episode-level correct/incorrect signal is sufficient.'
+tags = ['reinforcement-learning', 'credit-assignment', 'reasoning', 'SEPA', 'MaxRL', 'GTPO', 'delight-gradient']
 math = true
 
 [params]
@@ -14,6 +14,8 @@ math = true
 
 [Read the full paper (PDF)](/sepa.pdf)
 
+> **Update (Mar 20, 2026).** Delight Policy Gradient gating [(Osband, 2026)](https://arxiv.org/abs/2603.14608) tests the sign-aware token credit hypothesis: $\sigma(A_i \cdot \ell_t / \eta)$ amplifies fork-tokens in correct rollouts, suppresses them in incorrect. Three normalization iterations were required (raw → z-score inverted → scale-only), producing a mechanically correct gate that identifies real decision points (strategy words, step transitions, math structure). **Results across 4 models and 100+ runs: null on correct rate.** Soft gating (sigmoid) changes gradient direction by only 5% — too weak to matter. Hard gating (top-20% mask) changes it by 63% — too strong, actively hurts (−1.8pp on Qwen 4B). A gradient-level measurement confirms Adam does not absorb the directional change (cosine preserved through preconditioning), disproving the "Adam invariance" hypothesis for token weighting. The actual explanation: with episode-level binary rewards, the per-token signal is redundant — correct/incorrect already tells the optimizer everything it needs. See [Delight Gating](#delight-gating-sign-aware-token-selection-march-2026).
+>
 > **Update (Feb 28, 2026).** Controlled ablation across 30 runs (3 campaigns, 8 conditions) reveals why all advantage-level interventions produce null results. **(1) GRPO advantage bound proof:** with binary rewards $\{0,1\}$ and group size $G$, GRPO advantages $A_i = r_i - \bar{r}$ satisfy $|A_i| \leq (G-1)/G < 1$. Any `adv_clip_max` $\geq 1$ is a guaranteed no-op — confirmed empirically with `adv_cap_fraction = 0.0` across all GRPO runs. **(2) MaxRL equivalence:** MaxRL advantages reach $15\times$ (when 1/$G$ correct) and produce 20× larger loss values than GRPO, yet converge to the same correct rate (0.471 vs 0.473, 3 seeds each, 100 steps). **(3) Advantage capping with real intervention:** MaxRL + `adv_clip_max=2.0` triggers on 68% of steps, capping advantages at magnitudes 7–15. Result: 0.477 (identical within noise). **(4) SEPA with cross-condition entropy comparison:** new per-condition entropy stats confirm SEPA reduces `post_exec_surprisal_var` from 0.10 to 0.001 (99% reduction) with zero effect on correct rate. The likely explanation: Adam's per-parameter adaptive learning rate normalizes gradient magnitude, making the model insensitive to advantage scale. All our interventions change magnitude, not direction. See [Advantage Magnitude Ablation](#advantage-magnitude-ablation).
 >
 > **Update (Feb 26, 2026).** Two new experiments completed. **(1) 30B 3-seed campaign** replaces the single-seed probe: SEPA final CR 60.2% ± 0.8% vs. baseline 57.6% ± 2.3% (+2.6pp, Cohen's $d = 1.54$, but $t = 1.54$, $p = 0.26$ with only 3 seeds). The effect size is large and SEPA's variance is 3× lower, but statistical power is insufficient to confirm. **(2) Predictive variance experiment:** we tested $p(1-p)$ as an alternative uncertainty signal to surprisal $-\log p$, hoping a signal closer to true entropy would help. **Result: no improvement.** Final CR 50.5% ± 0.5% vs. surprisal 51.3% ± 0.5% (−0.8pp, 4B, 3 seeds). Both signals produce identical learning curves because both are one-dimensional projections of the sampled token's probability — neither captures the full vocabulary distribution $H(t) = -\sum_v p_v \log p_v$ that Yue et al.'s result depends on. The fundamental bottleneck is logprob-only access. See [Predictive Variance Experiment](#predictive-variance-experiment) and [30B 3-Seed Results](#phase-3-30b-scale-3-seeds).
@@ -663,6 +665,89 @@ All these interventions change gradient *magnitude*. Adam is specifically design
 
 We note this interpretation is indirect: we cannot inspect Tinker's internal optimizer state. The evidence is the MaxRL/GRPO equivalence (same outcome despite 20× loss difference) combined with Adam's known scale-invariance property. An alternative explanation — that Tinker internally normalizes advantages before computing the loss — is ruled out by the 20× loss difference in the reported metrics.
 
+## Delight Gating: Sign-Aware Token Selection (March 2026)
+
+All prior token-level interventions (GTPO, SEPA pooling, SEPA amplification, entropy masking) share a flaw: they weight tokens by surprisal magnitude alone, ignoring the *sign* of the episode advantage. SEPA amplifies high-surprisal tokens regardless of whether the rollout was correct or incorrect — meaning it amplifies blunders alongside breakthroughs.
+
+Delight Policy Gradient [(Osband, 2026)](https://arxiv.org/abs/2603.14608) introduces sign-aware gating:
+
+$$w_t = \sigma\!\left(\frac{A_i \cdot \ell_t}{\eta}\right)$$
+
+where $A_i$ is the episode advantage and $\ell_t = -\log p(t)$ is per-token surprisal. For correct rollouts ($A_i > 0$), high-surprisal tokens get gate $\to 1$ (amplified). For incorrect rollouts ($A_i < 0$), high-surprisal tokens get gate $\to 0$ (suppressed). This is the first token-level intervention that considers what the advantage sign implies about each token.
+
+### Three normalization iterations
+
+Naive application of the DG formula to instruct-tuned LLMs fails. We required three iterations to get a mechanically correct gate:
+
+1. **Raw surprisals** ($\ell_t \approx 0.06$ mean). The sigmoid argument $A_i \cdot \ell_t / \eta$ is $< 0.03$, producing $\sigma \approx 0.50$ for 99% of tokens. The gate is dead — no token is differentiated.
+
+2. **Z-score normalization** ($z_t = (\ell_t - \mu) / \sigma_\ell$). Fixes the dynamic range (neutral fraction drops to 94%) but **inverts the gate direction**: $g_+ < 0.5 < g_-$ because surprisal distributions are right-skewed. After centering, most tokens have $z < 0$, making $\sigma(A_{pos} \cdot z_{neg}) < 0.5$ for the bulk. The mean gate for correct rollouts is *below* 0.5 — backwards.
+
+3. **Scale-only normalization** ($\ell_t / \sigma_\ell$, no centering). Preserves non-negativity of surprisals, restoring $g_+ > 0.5 > g_-$. Gate range expands to $[0.51, 0.96]$, breakthrough fraction rises to 5%. The gate is now mechanically correct.
+
+This is itself a finding: DG's original formulation assumes surprisal has enough variance to drive the sigmoid. On instruct-tuned LLMs where the model is highly confident (mean surprisal $\sim 0.06$), normalization is required, and the normalization must preserve non-negativity.
+
+### Top surprisal token analysis
+
+With per-generation logging of decoded high-surprisal tokens, we confirmed that the gate identifies real decision points:
+
+- **Strategy tokens**: "find", "Rewrite", "want", "sum" — the model choosing an approach
+- **Step transitions**: newlines, section markers, chain-of-thought delimiters
+- **Math structure**: `$`, `}{`, operator selection
+
+These are the fork-points where the model makes consequential choices. The gate correctly identifies them without supervision — the model's own uncertainty landscape reveals its decision boundaries.
+
+### Gradient-level measurement
+
+To test whether Adam absorbs the token-weighting signal, we measured raw gradients $\mathbf{g}$ and Adam-preconditioned updates $\hat{\mathbf{m}}/\sqrt{\hat{\mathbf{v}}}$ under PG vs. DG on identical batches:
+
+| Comparison | Raw gradient cosine | Adam update cosine |
+|---|---|---|
+| GRPO vs. MaxRL (pure scaling) | 1.000 | 1.000 |
+| PG vs. soft DG (sigmoid) | 0.954 | 0.944 |
+| PG vs. hard DG (top-20% mask) | 0.370 | — |
+
+For GRPO vs. MaxRL, the gradients are identical in direction (cosine = 1.0) confirming they differ by a per-group scalar only. Adam absorbs the magnitude difference (mag ratio 1.96 → 1.00).
+
+For PG vs. DG: **Adam does not absorb the directional change.** The cosine drops from 0.954 (raw) to 0.944 (preconditioned) — Adam slightly *amplifies* the difference rather than compressing it. This disproves the hypothesis that Adam is the gatekeeper for token-level interventions.
+
+The actual explanation is simpler: sigmoid DG produces only a **5% gradient directional change**. This is too small to measurably affect training over hundreds of steps of stochastic optimization noise. The intervention is mild because 93% of tokens remain in the neutral gate zone.
+
+### Hard gating: the other extreme
+
+If 5% is too weak, is 63% enough? We tested hard top-$K$ masking: for correct rollouts, keep only the top-$K$% highest-surprisal tokens at full advantage and zero the rest. For incorrect rollouts, keep the bottom $K$% (routine tokens).
+
+With $K = 20$%, the gradient directional change is 63% (cosine = 0.37) — 13× stronger than sigmoid DG.
+
+| Model | PG baseline | Hard DG (20%) | Hard DG (40%) |
+|---|---|---|---|
+| Qwen3-4B-Instruct (step 40) | **44.6%** | 42.8% | 42.5% |
+| Nemotron-3-Super-120B (step 10) | 43.5% | 43.1% | 43.9% |
+| Kimi-K2.5 (step 12) | 29.0% | 29.0% | — |
+
+Hard gating **hurts** on Qwen (−1.8pp), is neutral elsewhere. Zeroing gradient on 80% of tokens discards useful signal — the model needs routine tokens for general language learning, not just fork-points.
+
+### Cross-model scaling (soft DG, 137 steps)
+
+We tested soft DG (sigmoid, fixed $\lambda = 0.5$) across four model families at 137 steps:
+
+| Model | Active params | PG final | DG final | Diff |
+|---|---|---|---|---|
+| Qwen3-4B-Instruct | 4B | 50.1% | 50.8% | +0.7pp |
+| Qwen3-235B-A22B-Instruct | 22B | 44.8% | 44.2% | −0.6pp |
+| Nemotron-3-Super-120B | 12B | 43.4% | 44.8%† | +1.4pp |
+| Kimi-K2.5 | ~12B | 25.0% | 26.6% | +1.6pp |
+
+†DG-ramp (SEPA schedule), not fixed $\lambda$.
+
+The +1.4–1.6pp signals on Nemotron and Kimi are suggestive but based on single seeds. Qwen models show no effect. The previous "48.5% ceiling" turned out to be a compute floor — both PG and DG broke 50% at 137 steps on Qwen 4B.
+
+### Summary
+
+Token-level credit assignment — whether soft (sigmoid gating, 5% directional change) or hard (top-$K$ masking, 63% directional change) — does not accelerate RL training on math reasoning with binary rewards. The mechanistic ingredients work: the gate identifies real fork-tokens, preserves correct sign semantics, and survives Adam preconditioning. But the intervention is either too weak to overcome training noise (sigmoid) or too strong and discards useful gradient signal (hard mask). The sweet spot between these extremes, if it exists, produces at most ~1.5pp improvement — within noise for single-seed experiments.
+
+The deeper conclusion: with episode-level binary credit (correct/incorrect) over 16 rollouts, the gradient already points in a useful direction. Token-level refinement adds information that is redundant with what the optimizer extracts from repeated episodes. The forking tokens are real, but the model learns about them from episode outcomes, not from per-token weighting.
+
 ## Discussion
 
 #### Credit assignment may affect speed, not ceiling
@@ -718,7 +803,7 @@ The adaptive $\lambda$ schedule connects to a broader observation: SEPA does not
 - **Planning mask quality.** Our regex-based strategic gram detector (18 hand-curated phrases) is simpler than the full semantic clustering pipeline [(Wang et al., 2025)](https://arxiv.org/abs/2509.03646) and has not been validated against human annotations. The failure modes are asymmetric, and this asymmetry points directly at the highest-value improvement. False negatives (planning tokens mislabeled as execution) are actively destructive: SEPA pools away their surprisal signal, inverting the intended effect. False positives (execution tokens mislabeled as planning) are benign: SEPA simply leaves their noise unchanged. This means the mask's *recall* on planning tokens matters more than its precision, and the first priority for improving the stack is reducing false negatives. The mask also misses implicit planning: a model may shift strategy mid-sequence without producing any of the 18 trigger phrases. A learned or attention-based detector that captures implicit planning would address both failure modes. We designed the mask as a swappable component specifically to enable this upgrade. **[Update.]** We built a semantic detector using sentence-transformers (`all-MiniLM-L6-v2`) that matches ~24% of tokens vs. 0.05% for regex — a 5000× improvement. The result was unchanged. This limitation is resolved; mask quality was not the bottleneck.
 - **Surprisal vs. entropy.** Our GTPO implementation uses surprisal ($-\log p$ of the sampled token) rather than the true policy entropy that the original formulation specifies [(Tan et al., 2025)](https://arxiv.org/abs/2508.04349), and does not separate rollouts into correct/incorrect sets. Surprisal compounds a problem that exists even with true entropy (high-uncertainty execution tokens receiving disproportionate credit) by adding sampling artifacts from peaked distributions. **[Update.]** The [Yue diagnostic](#yue-entropy-masking-diagnostic) confirmed this is likely the central limitation: surprisal-based entropy masking was nearly inert (−0.3pp, 3 seeds), while Yue et al.'s results depend on true Shannon entropy $H(t) = -\sum_v p_v \log p_v$. **[Update 2.]** The [predictive variance experiment](#predictive-variance-experiment) proved this is not a matter of choosing a better function: $p(1-p)$ produces identical GTPO rankings to $-\log p$ because both are monotonic transforms of the same scalar. No function of a single logprob can reconstruct the ~150k-dimensional distribution needed for $H(t)$. Resolving this requires infrastructure that exposes per-position entropy (full logits, top-$k$ logprobs, or a server-side entropy scalar).
 - **Insufficient compute.** Our primary results are not statistically significant. We report them as directional evidence, not conclusions. **[Update.]** Follow-up experiments (14 runs, ~115k generations, $\lambda$ = 0.94) had sufficient power but confirmed a zero-effect-size null. This limitation is resolved.
-- **Single model and task.** Qwen3-4B on math reasoning only. **[Update.]** Completed experiments at 30B scale (Qwen3-30B-A3B, 3 seeds) and with an alternative uncertainty signal (predictive variance). The 30B SEPA campaign showed +2.60pp with lower variance but $p = 0.26$; the predictive variance experiment confirmed that any function of a single logprob is equivalent. Scale and signal choice have been explored; the remaining bottleneck is logprob-only infrastructure.
+- **Single model and task.** Qwen3-4B on math reasoning only. **[Update.]** Completed experiments at 30B scale (Qwen3-30B-A3B, 3 seeds) and with an alternative uncertainty signal (predictive variance). The 30B SEPA campaign showed +2.60pp with lower variance but $p = 0.26$; the predictive variance experiment confirmed that any function of a single logprob is equivalent. **[Update 2.]** Delight gating tested across 4 model families (Qwen3-4B-Instruct, Qwen3-235B-A22B-Instruct, Nemotron-3-Super-120B, Kimi-K2.5) with 4B to 22B active parameters. Null result holds across all models. This limitation is substantially resolved.
 - **Truncated runs.** The original design called for 100 steps per run; we reduced to 40 for the lean campaign and then cut short at step 12--16 because of compute budget exhaustion. **[Update.]** Follow-up ran the full 100 steps. This limitation is resolved.
 
 ## Conclusion
@@ -737,6 +822,8 @@ The lesson is broader than the direction of the transform: token-level surprisal
 
 **[Update 4.]** Two final experiments confirm the logprob ceiling. A **30B 3-seed campaign** showed SEPA at +2.60pp with 3× lower variance (Cohen's $d = 1.54$), the first consistent positive direction in our series — but with only 3 seeds, $p = 0.26$. A **predictive variance experiment** tested $p(1-p)$ as an alternative to surprisal: both signals are monotonic functions of the same scalar $p_t$ and produce algebraically equivalent GTPO rankings (−0.78pp, 3 seeds, 4B). This closes the loop: *no function of the sampled token's log-probability can approximate Shannon entropy*. The information is not in the logprob — it is in the ~150k-dimensional vocabulary distribution that current backends do not expose. Rescuing token-level credit assignment requires infrastructure that returns per-position entropy, either via full logit vectors, top-$k$ logprobs ($k \geq 50$), or a server-side entropy scalar. See [Predictive Variance Experiment](#predictive-variance-experiment).
 
+**[Update 6.]** Delight Policy Gradient gating [(Osband, 2026)](https://arxiv.org/abs/2603.14608) tests sign-aware token selection: $\sigma(A_i \cdot \ell_t / \eta)$ amplifies fork-tokens in correct rollouts, suppresses them in incorrect — the first token intervention that respects advantage sign. Three normalization iterations (raw $\to$ z-score $\to$ scale-only) were needed because instruct-model surprisals ($\mu \approx 0.06$) are too small for the raw sigmoid. The mechanically correct gate identifies real decision points (strategy words, step transitions). A gradient-level test shows Adam does *not* absorb the directional change (cosine 0.954 $\to$ 0.944 through preconditioning), ruling out the "Adam invariance" explanation for token weighting. Instead, sigmoid DG's 5% directional change is simply too small; hard top-$K$ masking (63% change) is too strong and hurts ($-1.8$pp on Qwen 4B). Cross-model tests (Qwen 4B, Nemotron 120B, Kimi K2.5, Qwen 235B) over 137 steps show at most +1.6pp on models with low baselines — within single-seed noise. **The episode-level binary signal is sufficient: token-level refinement is redundant when the optimizer already extracts useful gradient direction from correct/incorrect rollout contrast.** See [Delight Gating](#delight-gating-sign-aware-token-selection-march-2026).
+
 **[Update 5.]** A controlled ablation across 30 runs (3 campaigns, 8 conditions, 100–200 steps) confirms that **all advantage-level interventions are null** and explains why. GRPO advantages with binary rewards $\{0,1\}$ and group size $G$ satisfy $|A_i| = |r_i - \bar{r}| \leq (G-1)/G < 1$: advantage capping at any threshold $\geq 1$ is a guaranteed no-op (confirmed: `adv_cap_fraction = 0.0` across all GRPO runs). MaxRL advantages, which *are* heavy-tailed (up to $15\times$ when $1/G$ correct), produce 20× larger loss values — yet converge to the same correct rate (0.471 vs 0.473, 3 seeds). Even aggressive capping (cap = 2.0, triggering on 68% of steps) yields 0.477: identical within noise. The likely explanation is Adam's per-parameter adaptive learning rate: when advantages scale by $k$, the second moment $v_t$ scales by $k^2$, and the effective update $m_t / \sqrt{v_t}$ remains constant. All our interventions change gradient *magnitude*, not *direction*. See [Advantage Magnitude Ablation](#advantage-magnitude-ablation).
 
 ## Acknowledgments
@@ -751,4 +838,5 @@ This research was made possible by [ThinkyMachines](https://thinkymachines.com),
 - Tan, H., Wang, Z., Pan, J., Lin, J., Wang, H., Wu, Y., Chen, T., Zheng, Z., Tang, Z., & Yang, H. (2025). [GTPO and GRPO-S: Token and Sequence-Level Reward Shaping with Policy Entropy](https://arxiv.org/abs/2508.04349). *arXiv:2508.04349*.
 - Wang, H., Xu, Q., Liu, C., Wu, J., Lin, F., & Chen, W. (2025). [Emergent Hierarchical Reasoning in LLMs through Reinforcement Learning](https://arxiv.org/abs/2509.03646). *arXiv:2509.03646*.
 - Wang, P., Li, L., Shao, Z., Xu, R. X., Dai, D., Li, Y., Chen, D., Wu, Y., & Sui, Z. (2023). [Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations](https://arxiv.org/abs/2312.08935). *arXiv:2312.08935*.
+- Osband, I. (2026). [Delightful Policy Gradients](https://arxiv.org/abs/2603.14608). *arXiv:2603.14608*.
 - Yue, Y., Chen, Z., Lu, R., Zhao, A., Zuo, Z., Ren, K., Lu, S., & Chen, Z. (2026). [Beyond the 80/20 Rule of RL: A Token-Level Perspective on RL for LLMs](https://arxiv.org/abs/2506.01939). *arXiv:2506.01939*.

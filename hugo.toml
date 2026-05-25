@@ -1,4 +1,4 @@
-baseURL = 'https://teilo.xyz'
+baseURL = 'https://teilo.xyz/'
 languageCode = 'en-us'
 title = "teïlo"
 
@@ -30,6 +30,22 @@ weight = 3
 
 [services.rss]
 limit = -1
+
+[mediaTypes]
+  [mediaTypes."text/markdown"]
+    suffixes = ["md"]
+
+[outputFormats]
+  [outputFormats.Markdown]
+    mediaType = "text/markdown"
+    baseName = "index"
+    isPlainText = true
+    notAlternative = false
+
+[outputs]
+  home = ["HTML", "RSS", "Markdown"]
+  section = ["HTML", "RSS", "Markdown"]
+  page = ["HTML", "Markdown"]
 
 [markup]
   [markup.tableOfContents]

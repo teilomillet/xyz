@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "teilo-site",
+      "type": "skill-md",
+      "description": "Read and cite Teilo Millet's public site, posts, collections, and project links using the site's machine-readable entrypoints.",
+      "url": "/.well-known/agent-skills/teilo-site/SKILL.md",
+      "digest": "sha256:69c09a3cfe36f9309bdd3eb068140a83d30304538025d5dbc530a38851ce62be"
+    }
+  ]
+}

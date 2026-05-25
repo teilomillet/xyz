@@ -1,0 +1,13 @@
+{{- $author := dict "@type" "Person" "name" .Site.Params.author "url" .Site.BaseURL "sameAs" (slice (printf "https://github.com/%s" .Site.Params.github) (printf "https://x.com/%s" .Site.Params.twitter) (printf "https://linkedin.com/in/%s" .Site.Params.linkedin)) -}}
+{{- if .IsHome -}}
+{{- $data := dict "@context" "https://schema.org" "@type" "WebSite" "name" .Site.Title "url" .Site.BaseURL "description" .Site.Params.description "publisher" $author -}}
+<script type="application/ld+json">{{ $data | jsonify | safeJS }}</script>
+{{- else if .IsPage -}}
+{{- $kind := "Article" -}}
+{{- if eq .Section "posts" }}{{ $kind = "BlogPosting" }}{{ end -}}
+{{- if eq .Section "collections" }}{{ $kind = "TechArticle" }}{{ end -}}
+{{- $desc := .Description | default (.Summary | plainify | truncate 160) -}}
+{{- $desc = replaceRE `\s+` " " $desc -}}
+{{- $data := dict "@context" "https://schema.org" "@type" $kind "headline" .Title "description" $desc "url" .Permalink "datePublished" (.Date.Format "2006-01-02T15:04:05Z07:00") "dateModified" (.Lastmod.Format "2006-01-02T15:04:05Z07:00") "author" $author "publisher" $author "mainEntityOfPage" .Permalink -}}
+<script type="application/ld+json">{{ $data | jsonify | safeJS }}</script>
+{{- end -}}

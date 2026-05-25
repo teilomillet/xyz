@@ -65,18 +65,6 @@ jobs:
         if: steps.cloudflare.outputs.ready == 'true'
         run: node scripts/check-cloudflare-pages.mjs public
 
-      - name: Ensure Cloudflare Pages project exists
-        if: steps.cloudflare.outputs.ready == 'true'
-        run: |
-          projects="$(npx --yes wrangler@latest pages project list --json)"
-          if ! PROJECTS_JSON="$projects" node -e '
-            const data = JSON.parse(process.env.PROJECTS_JSON);
-            const projects = Array.isArray(data) ? data : (data.result || []);
-            process.exit(projects.some((project) => project.name === process.env.CLOUDFLARE_PROJECT_NAME) ? 0 : 1);
-          '; then
-            npx --yes wrangler@latest pages project create "$CLOUDFLARE_PROJECT_NAME" --production-branch=main
-          fi
-
       - name: Deploy to Cloudflare Pages
         if: steps.cloudflare.outputs.ready == 'true'
         run: npx --yes wrangler@latest pages deploy public --project-name="$CLOUDFLARE_PROJECT_NAME" --branch="${GITHUB_REF_NAME}"

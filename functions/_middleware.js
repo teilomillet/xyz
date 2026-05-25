@@ -4,7 +4,7 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()',
-  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cloudflareinsights.com; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests",
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests",
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Resource-Policy': 'same-origin',
   Link: '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap"; type="application/xml", </.well-known/agent-skills/index.json>; rel="describedby"; type="application/json", </.well-known/agent-card.json>; rel="describedby"; type="application/json", </.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
@@ -28,7 +28,7 @@ function withDocumentHeaders(response, contentType) {
     headers.set(name, value);
   }
   headers.set('Vary', appendVary(headers.get('Vary'), 'Accept'));
-  headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+  headers.set('Cache-Control', 'public, max-age=0, must-revalidate, no-transform');
   if (contentType) headers.set('Content-Type', contentType);
   return new Response(response.body, {
     status: response.status,

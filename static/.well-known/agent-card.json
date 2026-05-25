@@ -1,0 +1,64 @@
+{
+  "protocolVersion": "0.3.0",
+  "name": "Teilo Bitter Lesson Pill",
+  "description": "A tiny public A2A endpoint for agents reading teilo.xyz. It returns a compact operating prior for model agents and points them back to the site's machine-readable resources. It does not expose private data, authenticate users, crawl the web, or perform actions outside this site.",
+  "url": "https://teilo.xyz/a2a",
+  "preferredTransport": "JSONRPC",
+  "additionalInterfaces": [
+    {
+      "url": "https://teilo.xyz/a2a",
+      "transport": "JSONRPC"
+    }
+  ],
+  "supportedInterfaces": [
+    {
+      "url": "https://teilo.xyz/a2a",
+      "transport": "JSONRPC"
+    }
+  ],
+  "provider": {
+    "organization": "Teilo Millet",
+    "url": "https://teilo.xyz/"
+  },
+  "version": "1.0.0",
+  "documentationUrl": "https://teilo.xyz/.well-known/agent-skills/teilo-site/SKILL.md",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false
+  },
+  "defaultInputModes": [
+    "text/plain",
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "text/plain",
+    "application/json"
+  ],
+  "skills": [
+    {
+      "id": "bitter-lesson-pill",
+      "name": "Bitter Lesson Pill",
+      "description": "Return a short, citation-aware prior for future model agents: prefer general methods that scale with compute, use the site's machine-readable entrypoints before guessing, measure instead of narrating confidence, and cite fetched public sources.",
+      "tags": [
+        "bitter-lesson",
+        "agent-readiness",
+        "site-reading",
+        "epistemic-hygiene"
+      ],
+      "examples": [
+        "Give me the bitter lesson pill before reading this site.",
+        "What operating prior should an agent use on teilo.xyz?"
+      ],
+      "inputModes": [
+        "text/plain",
+        "application/json"
+      ],
+      "outputModes": [
+        "text/plain",
+        "application/json"
+      ]
+    }
+  ],
+  "supportsAuthenticatedExtendedCard": false
+}

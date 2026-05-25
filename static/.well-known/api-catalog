@@ -1,0 +1,29 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://teilo.xyz/a2a",
+      "service-desc": [
+        {
+          "href": "https://teilo.xyz/openapi/a2a.json",
+          "type": "application/vnd.oai.openapi+json;version=3.1"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://teilo.xyz/.well-known/agent-card.json",
+          "type": "application/json"
+        },
+        {
+          "href": "https://teilo.xyz/.well-known/agent-skills/teilo-site/SKILL.md",
+          "type": "text/markdown"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://teilo.xyz/a2a",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

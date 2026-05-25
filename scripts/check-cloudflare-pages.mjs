@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { onRequest } from '../functions/_middleware.js';
+import { onRequestGet as a2aGet, onRequestPost as a2aPost } from '../functions/a2a.js';
 
 const root = normalize(process.argv[2] || 'public');
 
@@ -19,10 +20,13 @@ async function assetFetch(input) {
 
   try {
     const body = await readFile(path);
+    const contentType = url.pathname === '/.well-known/api-catalog'
+      ? 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"'
+      : contentTypes.get(extname(path)) || 'application/octet-stream';
     return new Response(body, {
       status: 200,
       headers: {
-        'Content-Type': contentTypes.get(extname(path)) || 'application/octet-stream',
+        'Content-Type': contentType,
       },
     });
   } catch {
@@ -69,5 +73,44 @@ const article = await run('/posts/prompting-as-bayesian-inference/', 'text/markd
 const articleText = await article.text();
 assert(article.status === 200, 'markdown article should return 200');
 assert(articleText.startsWith('# Prompting as Bayesian Inference'), 'markdown article should start with its title');
+
+const agentCard = await run('/.well-known/agent-card.json', 'application/json');
+const agentCardJson = await agentCard.json();
+assert(agentCard.status === 200, 'A2A agent card should return 200');
+assert(agentCardJson.url === 'https://teilo.xyz/a2a', 'A2A agent card should point at /a2a');
+assert(agentCardJson.skills?.some((skill) => skill.id === 'bitter-lesson-pill'), 'A2A agent card should declare the bitter lesson skill');
+
+const apiCatalog = await run('/.well-known/api-catalog', 'application/linkset+json');
+const apiCatalogJson = await apiCatalog.json();
+assert(apiCatalog.status === 200, 'API catalog should return 200');
+assert(apiCatalog.headers.get('Content-Type')?.startsWith('application/linkset+json'), 'API catalog should use linkset JSON content type');
+assert(apiCatalogJson.linkset?.[0]?.anchor === 'https://teilo.xyz/a2a', 'API catalog should anchor the A2A endpoint');
+
+const a2aStatus = await a2aGet();
+const a2aStatusJson = await a2aStatus.json();
+assert(a2aStatus.status === 200, 'A2A GET should return 200');
+assert(a2aStatusJson.methods?.includes('message/send'), 'A2A GET should advertise message/send');
+
+const a2aMessage = await a2aPost({
+  request: new Request('https://teilo.xyz/a2a', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'check',
+      method: 'message/send',
+      params: {
+        message: {
+          role: 'user',
+          parts: [{ kind: 'text', text: 'Give me the bitter lesson pill.' }],
+          messageId: 'check-message',
+        },
+      },
+    }),
+  }),
+});
+const a2aMessageJson = await a2aMessage.json();
+assert(a2aMessage.status === 200, 'A2A message/send should return 200');
+assert(a2aMessageJson.result?.parts?.[0]?.text?.includes('bitter lesson pill'), 'A2A message/send should return the pill text');
 
 console.log('cloudflare pages checks passed');

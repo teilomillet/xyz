@@ -1,0 +1,79 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Teilo Bitter Lesson Pill A2A Endpoint",
+    "version": "1.0.0",
+    "description": "A tiny public A2A JSON-RPC endpoint for agents reading teilo.xyz. It supports message/send and returns a deterministic operating prior for reading and citing the site."
+  },
+  "servers": [
+    {
+      "url": "https://teilo.xyz"
+    }
+  ],
+  "paths": {
+    "/a2a": {
+      "get": {
+        "summary": "Endpoint status and discovery links",
+        "responses": {
+          "200": {
+            "description": "Endpoint metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "A2A JSON-RPC message/send",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "jsonrpc",
+                  "method"
+                ],
+                "properties": {
+                  "jsonrpc": {
+                    "const": "2.0"
+                  },
+                  "id": {
+                    "type": [
+                      "string",
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "method": {
+                    "const": "message/send"
+                  },
+                  "params": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON-RPC response containing an A2A message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -16,6 +16,7 @@
   </nav>
   {{- block "main" . }}{{ end -}}
   <footer>&copy; 2026 Teïlo Millet</footer>
-  <script defer src="{{ "site.js" | relURL }}"></script>
+  {{- $siteJSVersion := substr (sha256 (readFile "static/site.js")) 0 12 -}}
+  <script defer src="{{ "site.js" | relURL }}?v={{ $siteJSVersion }}"></script>
 </body>
 </html>

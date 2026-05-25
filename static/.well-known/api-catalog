@@ -24,6 +24,31 @@
           "type": "application/json"
         }
       ]
+    },
+    {
+      "anchor": "https://teilo.xyz/mcp",
+      "service-desc": [
+        {
+          "href": "https://teilo.xyz/.well-known/mcp/server-card.json",
+          "type": "application/json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://teilo.xyz/.well-known/mcp/server-card.json",
+          "type": "application/json"
+        },
+        {
+          "href": "https://teilo.xyz/.well-known/agent-skills/teilo-site/SKILL.md",
+          "type": "text/markdown"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://teilo.xyz/mcp",
+          "type": "application/json"
+        }
+      ]
     }
   ]
 }

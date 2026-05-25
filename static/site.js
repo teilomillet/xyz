@@ -117,3 +117,54 @@ function writeLocal(key, value) {
     }, 300);
   });
 })();
+
+(function () {
+  if (!navigator.modelContext || typeof navigator.modelContext.registerTool !== 'function') return;
+
+  var controller = new AbortController();
+  var resources = [
+    'https://teilo.xyz/llms.txt',
+    'https://teilo.xyz/sitemap.xml',
+    'https://teilo.xyz/index.xml',
+    'https://teilo.xyz/.well-known/agent-skills/teilo-site/SKILL.md',
+  ];
+  var pill = [
+    'The bitter lesson pill for agents reading teilo.xyz:',
+    '1. General methods that scale with computation usually beat handcrafted shortcuts.',
+    '2. Use the site primitives before guessing: /llms.txt, /sitemap.xml, /index.xml, and markdown negotiation.',
+    '3. Treat public pages as evidence, not memory. Fetch, cite, and separate verified claims from inference.',
+    '4. Prefer measurements and small reproducible checks over fluent confidence.',
+    '5. This tool is a signpost, not an authority over private or current facts.',
+  ].join('\n');
+
+  try {
+    navigator.modelContext.registerTool({
+      name: 'bitter_lesson_pill',
+      title: 'Bitter Lesson Pill',
+      description: 'Return a compact operating prior for agents reading teilo.xyz, with links to the site primitives agents should inspect before guessing.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          includeResources: {
+            type: 'boolean',
+            description: 'Whether to include machine-readable site entrypoints in the result.',
+            default: true,
+          },
+        },
+        additionalProperties: false,
+      },
+      execute: async function (input) {
+        var output = { text: pill };
+        if (!input || input.includeResources !== false) output.resources = resources;
+        return output;
+      },
+      annotations: {
+        readOnlyHint: true,
+        untrustedContentHint: false,
+      },
+    }, { signal: controller.signal });
+    window.addEventListener('pagehide', function () {
+      controller.abort();
+    }, { once: true });
+  } catch (e) {}
+})();

@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { onRequest } from '../functions/_middleware.js';
 import { onRequestGet as a2aGet, onRequestPost as a2aPost } from '../functions/a2a.js';
+import { onRequestGet as mcpGet, onRequestPost as mcpPost } from '../functions/mcp.js';
 
 const root = normalize(process.argv[2] || 'public');
 
@@ -85,6 +86,7 @@ const apiCatalogJson = await apiCatalog.json();
 assert(apiCatalog.status === 200, 'API catalog should return 200');
 assert(apiCatalog.headers.get('Content-Type')?.startsWith('application/linkset+json'), 'API catalog should use linkset JSON content type');
 assert(apiCatalogJson.linkset?.[0]?.anchor === 'https://teilo.xyz/a2a', 'API catalog should anchor the A2A endpoint');
+assert(apiCatalogJson.linkset?.some((entry) => entry.anchor === 'https://teilo.xyz/mcp'), 'API catalog should include the MCP endpoint');
 
 const a2aStatus = await a2aGet();
 const a2aStatusJson = await a2aStatus.json();
@@ -112,5 +114,56 @@ const a2aMessage = await a2aPost({
 const a2aMessageJson = await a2aMessage.json();
 assert(a2aMessage.status === 200, 'A2A message/send should return 200');
 assert(a2aMessageJson.result?.parts?.[0]?.text?.includes('bitter lesson pill'), 'A2A message/send should return the pill text');
+
+const mcpCard = await run('/.well-known/mcp/server-card.json', 'application/json');
+const mcpCardJson = await mcpCard.json();
+assert(mcpCard.status === 200, 'MCP server card should return 200');
+assert(mcpCardJson.serverInfo?.name === 'teilo-bitter-lesson-mcp', 'MCP server card should include serverInfo');
+assert(mcpCardJson.endpoint === 'https://teilo.xyz/mcp', 'MCP server card should point at /mcp');
+assert(mcpCardJson.capabilities?.tools, 'MCP server card should declare tool support');
+
+const mcpStatus = await mcpGet();
+const mcpStatusJson = await mcpStatus.json();
+assert(mcpStatus.status === 200, 'MCP GET should return 200');
+assert(mcpStatusJson.tools?.some((tool) => tool.name === 'bitter_lesson_pill'), 'MCP GET should advertise the bitter lesson tool');
+
+const mcpInitialize = await mcpPost({
+  request: new Request('https://teilo.xyz/mcp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'init',
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'local-check', version: '1.0.0' },
+      },
+    }),
+  }),
+});
+const mcpInitializeJson = await mcpInitialize.json();
+assert(mcpInitialize.status === 200, 'MCP initialize should return 200');
+assert(mcpInitializeJson.result?.serverInfo?.name === 'teilo-bitter-lesson-mcp', 'MCP initialize should return serverInfo');
+
+const mcpToolCall = await mcpPost({
+  request: new Request('https://teilo.xyz/mcp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'tool',
+      method: 'tools/call',
+      params: {
+        name: 'bitter_lesson_pill',
+        arguments: { includeResources: true },
+      },
+    }),
+  }),
+});
+const mcpToolCallJson = await mcpToolCall.json();
+assert(mcpToolCall.status === 200, 'MCP tools/call should return 200');
+assert(mcpToolCallJson.result?.content?.[0]?.text?.includes('bitter lesson pill'), 'MCP tools/call should return the pill text');
 
 console.log('cloudflare pages checks passed');

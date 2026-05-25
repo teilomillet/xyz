@@ -1,0 +1,85 @@
+{
+  "serverInfo": {
+    "name": "teilo-bitter-lesson-mcp",
+    "title": "Teilo Bitter Lesson MCP",
+    "version": "1.0.0"
+  },
+  "description": "A tiny public MCP-style endpoint for agents reading teilo.xyz. It exposes one read-only tool that returns an operating prior and points agents to the site's machine-readable resources.",
+  "protocolVersion": "2025-06-18",
+  "endpoint": "https://teilo.xyz/mcp",
+  "transport": {
+    "type": "streamable-http",
+    "endpoint": "https://teilo.xyz/mcp"
+  },
+  "remotes": [
+    {
+      "transport": "streamable-http",
+      "url": "https://teilo.xyz/mcp",
+      "authentication": {
+        "type": "none"
+      },
+      "supportedProtocolVersions": [
+        "2025-06-18"
+      ]
+    }
+  ],
+  "authentication": {
+    "type": "none"
+  },
+  "capabilities": {
+    "tools": {
+      "listChanged": false
+    },
+    "resources": {
+      "subscribe": false,
+      "listChanged": false
+    },
+    "prompts": {
+      "listChanged": false
+    }
+  },
+  "tools": [
+    {
+      "name": "bitter_lesson_pill",
+      "title": "Bitter Lesson Pill",
+      "description": "Return a compact operating prior for agents reading teilo.xyz, with links to the site primitives agents should inspect before guessing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeResources": {
+            "type": "boolean",
+            "description": "Whether to include machine-readable site entrypoints in the result.",
+            "default": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "untrustedContentHint": false
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "https://teilo.xyz/llms.txt",
+      "name": "llms.txt",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "https://teilo.xyz/sitemap.xml",
+      "name": "sitemap.xml",
+      "mimeType": "application/xml"
+    },
+    {
+      "uri": "https://teilo.xyz/index.xml",
+      "name": "index.xml",
+      "mimeType": "application/xml"
+    },
+    {
+      "uri": "https://teilo.xyz/.well-known/agent-skills/teilo-site/SKILL.md",
+      "name": "teilo-site agent skill",
+      "mimeType": "text/markdown"
+    }
+  ]
+}

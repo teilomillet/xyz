@@ -78,7 +78,7 @@ on this benchmark. Section 9 is the playbook for starting on any other.
 The code is private but available on request, and will be open-sourced if
 there is demand.
 
-## 1. The benchmark and the opening
+## 1. The Spider 2.0-DBT benchmark and the opening
 
 Spider 2.0-DBT is the repository-level slice of Spider 2.0. Each of its 68
 instances is a full dbt project — Fivetran-style packages,
@@ -107,7 +107,7 @@ The project charter (`AGENTS.md`) set the target at ≥ 43/64 and the
 constraint that shapes everything below: one person, alongside other work,
 roughly four weeks. The stopping rule was the calendar, fixed in advance.
 
-## 2. Reproducing the evaluation
+## 2. Reproducing the Spider 2.0-DBT evaluation
 
 The first week went entirely to reproducing the official evaluation
 locally and characterizing its scorer. Nothing else in the project could

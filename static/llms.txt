@@ -3,6 +3,7 @@
 > Personal site of Teïlo Millet. Research and writing on large language models, reinforcement learning, alignment, and AI infrastructure.
 
 ## Posts
+- [Why Trained Open Models Score Zero on Spider 2.0-DBT](https://teilo.xyz/posts/quaero-spider2-negative-result/): Negative result from four weeks of RLVR/SFT on the Spider 2.0-DBT benchmark: 8/8 on held-out synthetic dbt tasks, 0 on every real instance, at every scale from 4B to 35B. Diagnosis: reward misalignment — local validation does not predict the hidden gold diff. Includes verified scorer analysis (duckdb_match accepts row-scrambled submissions; all 119 suite tables use ignore_order=true), a handoff, and a playbook.
 - [Prompting as Bayesian Inference](https://teilo.xyz/posts/prompting-as-bayesian-inference/): Reframing LLM interaction as steering an approximate Bayesian inference engine.
 - [La Mécanique du Prompt](https://teilo.xyz/posts/la-mecanique-du-prompt/): French narrative version of Bayesian prompting, told through characters Elena and David.
 - [Soft & Hard Alignment](https://teilo.xyz/posts/soft-and-hard-alignment/): The difference between optimizing for appearance and optimizing for intent.
@@ -17,6 +18,7 @@
 - [Roofline Model](https://teilo.xyz/collections/roofline/): Attainable performance bounded by compute peak and memory bandwidth.
 
 ## Open Source
+- [retrain](https://github.com/teilomillet/retrain): TOML-first RLVR/SFT trainer for LLMs — the training stack behind the Spider 2.0-DBT negative result.
 - [textpolicy](https://github.com/teilomillet/textpolicy): Reinforcement learning for text generation on Apple Silicon (MLX).
 - [enzu](https://github.com/teilomillet/enzu): Budget-controlled recursive language model execution in Python.
 - [gollm](https://github.com/teilomillet/gollm): Unified Go interface for LLM providers.

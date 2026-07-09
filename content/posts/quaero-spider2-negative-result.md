@@ -1,5 +1,5 @@
 +++
-title = 'Factory 8/8, Spider2 0: A Negative Result on Training Open Models for Spider 2.0-DBT'
+title = 'Why Trained Open Models Score Zero on Spider 2.0-DBT'
 date = 2026-07-09
 draft = false
 description = 'Spider 2.0-DBT drops an AI agent into a real dbt data-transformation project and scores its output tables against hidden gold tables — exact match, no partial credit. The leaderboard is held by harnesses around closed frontier models (65.6%, Claude Sonnet 4.6). I spent four time-boxed weeks trying to beat it with trained open models instead: 279 commits, 140 training configs, 94 tracked runs, models from 4B to 35B. The trained models do the entire job on manufactured lookalike tasks (8/8) and score 0 on every real instance tested: everything locally checkable passes, the hidden check fails. A negative result with a diagnosis — the failure is at the reward layer, not the protocol layer — plus a handoff for continuing on this benchmark and a playbook for training open models on agentic benchmarks. Code available on request; will open-source with demand.'

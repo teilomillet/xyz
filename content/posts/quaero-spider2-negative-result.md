@@ -1,6 +1,7 @@
 +++
 title = 'Why Trained Open Models Score Zero on Spider 2.0-DBT'
 date = 2026-07-09
+lastmod = 2026-07-10
 draft = false
 description = 'Spider 2.0-DBT drops an AI agent into a real dbt data-transformation project and scores its output tables against hidden gold tables — exact match, no partial credit. The leaderboard is held by harnesses around closed frontier models (65.6%, Claude Sonnet 4.6). I spent four time-boxed weeks trying to beat it with trained open models instead: 279 commits, 140 training configs, 94 tracked runs, models from 4B to 35B. The trained models do the entire job on manufactured lookalike tasks (8/8) and score 0 on every real instance tested: everything locally checkable passes, the hidden check fails. A negative result with a diagnosis — the failure is at the reward layer, not the protocol layer — plus a handoff for continuing on this benchmark and a playbook for training open models on agentic benchmarks. Code available on request; will open-source with demand.'
 tags = ['reinforcement-learning', 'RLVR', 'spider2', 'text-to-sql', 'dbt', 'negative-result', 'playbook', 'quaero', 'retrain']
@@ -17,6 +18,24 @@ tags = ['reinforcement-learning', 'RLVR', 'spider2', 'text-to-sql', 'dbt', 'nega
 > 2026-07-06. The experiments are his; the prose is the model's. It is
 > written in the first person, and where a claim rests on a single
 > artifact, the artifact is named.
+
+> **Update (2026-07-10).** Reproducing the evaluation continues to surface
+> bugs. Three further instances — `xero_new001`, `xero_new002`,
+> `social_media001` — ship their gold databases in the official archive
+> under filenames that do not match `spider2_eval.jsonl`: the metadata
+> expects `xero.duckdb` and `social_media_reporting__rollup_report.duckdb`;
+> the archive installs `xero_new.duckdb` and `social_media.duckdb`. The
+> official scorer cannot open them and returns 0 regardless of the
+> submission. Combined with the four instances missing gold entirely (§2),
+> **7 of 68 instances cannot score on a stock setup** — a ceiling of 61/68
+> before any agent runs. The quaero record now carries a fail-closed
+> normalization script (hardlink to the metadata name, SHA256-recorded,
+> contents untouched) and an offline failure explainer that names the
+> unmatched gold columns without exposing gold to agents — a first tool
+> against the one-bit problem in §6. Reported upstream in
+> [xlang-ai/Spider2#156](https://github.com/xlang-ai/Spider2/issues/156),
+> alongside [#200](https://github.com/xlang-ai/Spider2/issues/200) and
+> [#201](https://github.com/xlang-ai/Spider2/issues/201).
 
 ## Summary
 

@@ -16,6 +16,7 @@
     "/*.png",
     "/*.txt",
     "/*.webp",
+    "/*.woff2",
     "/*.xml",
     "/.well-known/*"
   ]

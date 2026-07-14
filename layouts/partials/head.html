@@ -31,36 +31,8 @@
 <meta name="twitter:description" content="{{ $desc }}">
 {{ partial "structured-data.html" . }}
 <link rel="preload" href="{{ "fonts/atkinson-hyperlegible-latin-400-normal.woff2" | relURL }}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{ "fonts.css" | relURL }}">
 <style>
-@font-face {
-  font-family: "Atkinson Hyperlegible";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("{{ "fonts/atkinson-hyperlegible-latin-400-normal.woff2" | relURL }}") format("woff2");
-}
-@font-face {
-  font-family: "Atkinson Hyperlegible";
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url("{{ "fonts/atkinson-hyperlegible-latin-400-italic.woff2" | relURL }}") format("woff2");
-}
-@font-face {
-  font-family: "Atkinson Hyperlegible";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("{{ "fonts/atkinson-hyperlegible-latin-700-normal.woff2" | relURL }}") format("woff2");
-}
-@font-face {
-  font-family: "Atkinson Hyperlegible";
-  font-style: italic;
-  font-weight: 700;
-  font-display: swap;
-  src: url("{{ "fonts/atkinson-hyperlegible-latin-700-italic.woff2" | relURL }}") format("woff2");
-}
-
 /*
   Type scale — minor third (1.2)
   Base: 32px

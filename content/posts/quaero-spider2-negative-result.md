@@ -535,6 +535,23 @@ model that solves 24 of 32 synthetic projects still cannot operate a real
 one unassisted. What it does not mean: §6 is not overturned. The reward
 wall is still there; this model just hits the distribution wall first.
 
+If you are the one training a model, this changes your plan in three
+ways. First: never read a rising synthetic score as progress toward the
+benchmark — 24/32 predicted nothing here, and it will predict nothing
+for you. Buy yourself a legal dev split on day one and test on real
+tasks from the start. Second: evaluate under the exact harness you
+intend to claim. Retries, automatic validation, and driver feedback all
+mask this wall; the paper's models looked one rung better than they
+were because the harness quietly helped. Decide what counts as "the
+model" versus "the scaffold" before you measure, not after. Third: if
+your model stalls before submitting on real tasks, more synthetic data
+of the same shape will not fix it — that gradient saturates, as it did
+here. The options that remain are training data that resembles real
+repositories, a larger model, or a scaffold you openly declare as part
+of the entry. If you are here to beat the leaderboard rather than to
+train, note what its top entries already know: today the scaffold does
+the operating, and the model supplies judgment inside it.
+
 **Training tasks with real business rules.** Nine repair tasks now exist,
 built from real public dbt repositories pinned at exact commits —
 Fivetran, dbt Labs, Elementary, Brooklyn Data, and others. How each one is
@@ -546,6 +563,25 @@ exactly what real Spider tasks do. The difference is that here the hidden
 answer is built from the repository's own logic, so for the first time it
 can pay training reward. What this is not yet: a benchmark or a result.
 Nine of a planned 48 tasks exist, and no model has been scored on them.
+
+Why this matters if you are the one training: everything else in this
+paper trains a model against signals it can already satisfy. These
+tasks are the first whose reward a model can only earn by getting the
+business semantics right — the exact thing the benchmark tests and the
+factory could not teach. The recipe is worth copying for any agentic
+benchmark, and it is short: take a real public repository, pin the
+exact commit, build it, keep its outputs as the hidden answer, break
+something, and keep the task only if both checks hold — the true repair
+scores 1, and a plausible wrong repair that passes every local check
+scores 0. That second check is the whole value. A task whose verifier
+accepts the wrong repair teaches your model nothing; it just moves the
+8/8-versus-0 gap somewhere new. Two cautions before you use these for
+anything public: the upstream code may sit in a base model's
+pretraining data, so results on such tasks are training signal and
+transfer evidence, never a clean benchmark score — and whether closing
+this training gap actually moves the official number is exactly the
+experiment that has not been run. Nine tasks exist; 39 remain; that
+experiment is the open invitation.
 
 **RL: tried, then priced out.** A new family of synthetic tasks encodes
 the business-rule traps directly — NULL is not FALSE, wall-clock time

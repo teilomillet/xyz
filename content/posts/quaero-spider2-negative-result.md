@@ -3,7 +3,7 @@ title = 'Why Trained Open Models Score Zero on Spider 2.0-DBT'
 date = 2026-07-09
 lastmod = 2026-07-15
 draft = false
-description = 'Spider 2.0-DBT drops an AI agent into a real dbt data-transformation project and scores its output tables against hidden gold tables — exact match, no partial credit. The leaderboard is held by harnesses around closed frontier models (65.6%, Claude Sonnet 4.6). I spent four time-boxed weeks trying to beat it with trained open models instead: 279 commits, 140 training configs, 94 tracked runs, models from 4B to 35B. The trained models do the entire job on manufactured lookalike tasks (8/8) and score 0 on every real instance tested: everything locally checkable passes, the hidden check fails. A negative result with a diagnosis — the failure is at the reward layer, not the protocol layer — plus a handoff for continuing on this benchmark and a playbook for training open models on agentic benchmarks. Code available on request; will open-source with demand. Postscript (2026-07-15): the project resumed — the unfunded branches got funded, a new gate-selected adapter is public on Hugging Face, and the zero got stricter.'
+description = 'Spider 2.0-DBT drops an AI agent into a real dbt data-transformation project and scores its output tables against hidden gold tables — exact match, no partial credit. The leaderboard is held by harnesses around closed frontier models (65.6%, Claude Sonnet 4.6). I spent four time-boxed weeks trying to beat it with trained open models instead: 279 commits, 140 training configs, 94 tracked runs, models from 4B to 35B. The trained models do the entire job on manufactured lookalike tasks (8/8) and score 0 on every real instance tested: everything locally checkable passes, the hidden check fails. A negative result with a diagnosis — the failure is at the reward layer, not the protocol layer — plus a handoff for continuing on this benchmark and a playbook for training open models on agentic benchmarks. Postscript (2026-07-15): the project resumed — the unfunded branches got funded, the adapter is public on Hugging Face, the environment is open source, and the zero got stricter.'
 tags = ['reinforcement-learning', 'RLVR', 'spider2', 'text-to-sql', 'dbt', 'negative-result', 'playbook', 'quaero', 'retrain']
 
 [params]
@@ -103,8 +103,9 @@ This paper is written for people who want to do what I did — train an open
 model on an agentic benchmark. Sections 1–7 describe what was built, what
 happened, and why it stopped. Section 8 is a handoff for anyone continuing
 on this benchmark. Section 9 is the playbook for starting on any other.
-The code is private but available on request, and will be open-sourced if
-there is demand.
+The environment, verifier, and portable runtime are open source
+([github.com/teilomillet/quaero-dbt](https://github.com/teilomillet/quaero-dbt));
+the rest of the code is available on request.
 
 ## 1. The Spider 2.0-DBT benchmark and the opening
 
@@ -437,9 +438,12 @@ top harness scores 42/64. Base open models already reach
    instance, by any open model at any scale, converts the misaligned
    reward from a wall into a gradient. Nobody has published this.
 
-**Availability.** The environment, verifier, task factory, contamination
-linter, eval stack, taxonomy, and every manifest: on request, open-sourced
-if there is demand. Trained adapters and SFT datasets are mirrored to
+**Availability.** The environment, verifier (with its independent audit
+harness), contamination linter, portable runtimes, and the action contract
+are open source at
+[github.com/teilomillet/quaero-dbt](https://github.com/teilomillet/quaero-dbt)
+(Apache-2.0). The task factory, eval stack, taxonomy, and manifests remain
+on request. Trained adapters and SFT datasets are mirrored to
 private Hugging Face repos with model cards stating the non-contamination
 boundary. Per the project's own publication rule, none of it is labeled a
 "Spider2 model," because no Spider2 evidence supports that label.
@@ -481,9 +485,10 @@ if you hit the reward-alignment wall on your own benchmark, I would like
 to hear about it, because each new instance sharpens the general claim
 in §6.
 
-If you are continuing on Spider 2.0-DBT: the map above is the handoff, and
-the code and artifacts are one email away. Open-sourcing happens when
-there is demand.
+If you are continuing on Spider 2.0-DBT: the map above is the handoff. The
+environment, verifier, and runtime are at
+[github.com/teilomillet/quaero-dbt](https://github.com/teilomillet/quaero-dbt);
+the remaining code and artifacts are one email away.
 
 If you are building RLVR stacks: every experiment here ran through
 [`retrain`](https://github.com/teilomillet/retrain), which is open source
@@ -615,14 +620,22 @@ scaffold, so four harder task families were added
 answer. And training longer on the same data was tested and rejected:
 every extra pass over the corpus made the model worse.
 
-**The adapter is public.** The selected checkpoint — a 41 MB LoRA on
-Qwen3.5-4B — is at
+**The adapter is public — and so is its environment.** The selected
+checkpoint — a 41 MB LoRA on Qwen3.5-4B — is at
 [`teilomillet/quaero-qwen35-4b-sft-factory-longhorizon-20260711`](https://huggingface.co/teilomillet/quaero-qwen35-4b-sft-factory-longhorizon-20260711),
 immutable revision `bfd15721b06f288eb6c88e9bbc3be37de8f6d6ca`. The model
 card opens by saying what this is not — a claimed Spider 2.0 solution —
-and reports both numbers, 24/32 synthetic and 0/16 dev. Why publish a
-zero: so the gap this paper measures can be checked by anyone. Load the
-adapter, run it, and both halves reproduce.
+and reports both numbers, 24/32 synthetic and 0/16 dev. The environment
+it was trained and scored in is now open source at
+[github.com/teilomillet/quaero-dbt](https://github.com/teilomillet/quaero-dbt):
+the action contract, the episode state machine, the verifier that mirrors
+the official scorer (with the audit harness that proves the mirror), the
+portable no-gold runtime for running the model against your own dbt
+project, and the contamination linter. What stays private, deliberately:
+the task generators and every evaluation task — releasing those would
+undo the separation this postscript just drew. Why publish a zero and its
+environment: so the gap this paper measures can be checked by anyone.
+Load the adapter, run it, and both halves reproduce.
 
 ---
 

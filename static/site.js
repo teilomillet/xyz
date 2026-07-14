@@ -168,3 +168,28 @@ function writeLocal(key, value) {
     }, { once: true });
   } catch (e) {}
 })();
+
+(function () {
+  var nav = document.querySelector('body > nav');
+  if (!nav) return;
+  var lastY = window.pageYOffset;
+  var ticking = false;
+  function onScroll() {
+    var y = window.pageYOffset;
+    if (y <= nav.offsetHeight) {
+      nav.classList.remove('nav-hidden');
+    } else if (y > lastY + 4 && !nav.classList.contains('open')) {
+      nav.classList.add('nav-hidden');
+    } else if (y < lastY - 4) {
+      nav.classList.remove('nav-hidden');
+    }
+    lastY = y;
+    ticking = false;
+  }
+  window.addEventListener('scroll', function () {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(onScroll);
+    }
+  }, { passive: true });
+})();

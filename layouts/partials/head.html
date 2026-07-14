@@ -99,6 +99,18 @@ nav {
   border-bottom: none;
   font-size: 27px;
 }
+body > nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  transition: transform 0.25s ease;
+}
+html.dark body > nav { background: #000; }
+body > nav.nav-hidden { transform: translateY(-100%); }
+@media (prefers-reduced-motion: reduce) {
+  body > nav { transition: none; }
+}
 nav a { text-decoration: none; margin-right: 1.5rem; }
 nav .nav-menu-btn { display: none; }
 nav .toggle {

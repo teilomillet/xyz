@@ -575,8 +575,8 @@ step.** This deserves to be explicit, because it is the reason the trained
 model is an SFT model and not an RL one. SFT and RL buy gradient steps at
 wildly different prices on this budget. SFT replays trajectories that were
 generated once, offline: the 10,034-trajectory corpus yields 2,510
-gradient steps in one overnight run on the same $1.80/hr pod — roughly
-twenty dollars. GRPO regenerates its data at every step: one step at the
+gradient steps in a single seven-hour run on the same $1.80/hr pod —
+about thirteen dollars (W&B `2thgo6lc`, 25,070 s of measured runtime). GRPO regenerates its data at every step: one step at the
 probe's contract (group of 8) means eight full environment episodes, each
 up to 64 turns × 512 sampled action tokens ≈ 33,000 tokens, and at the
 ~250 tokens/s the 4B model sustains on one rented GPU

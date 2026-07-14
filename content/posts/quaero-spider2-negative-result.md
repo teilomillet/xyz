@@ -497,128 +497,91 @@ under four weeks of daily use.
 
 ## Postscript (2026-07-15): the unfunded branches, funded
 
-Section 7 closed the project with a list of branches "abandoned unfunded,
-not falsified." Five days after publication a second allocation reopened
-three of them. This postscript reports what the record shows since, in the
-same terms as the paper. The short version: the zero survived — but it is
-now stricter, better measured, and finally has the two things §6 said it
-lacked: a legitimate dev signal, and training tasks whose gold can be
-built.
+Section 7 said the remaining ideas were dropped for lack of time, not
+because they failed. Five days after publication, time was found, and
+three of them were picked back up. Here is what happened, in plain terms.
+The score on real tasks is still zero. But the zero is now measured under
+stricter rules, and the training signal §6 said was missing now exists.
 
-**A dev-signal budget exists (branch 2).** The 64 scoreable instances are
-now formally split: a predeclared 16-task development slice, and a 48-task
-remainder that stays sealed "until the complete SFT plus RL recipe is
-frozen" (`run_logs/prime-sft-rtxpro96-20260712/EVALUATION.md`). Checkpoint
-selection is forbidden from touching Spider at all: candidates are ranked
-only by a frozen 32-episode factory gate, and the Spider dev run is
-report-only, after selection. Failing against gold — the only way the
-business-semantics failures of §6 are discoverable — is now possible
-without contaminating anything.
+**A development split.** The 64 scoreable benchmark tasks are now split
+once, in advance: 16 for development, 48 sealed away until the full
+training recipe is frozen. Why: the business rules of §6 can only be
+discovered by failing against the hidden answers, and before this split,
+every attempt to do that would have poisoned the benchmark. Now there are
+16 tasks it is legal to fail on. How the 16 stay honest: model checkpoints
+are chosen on synthetic tasks only, and the dev run happens after the
+choice, as a report — never as a selection signal
+(`run_logs/prime-sft-rtxpro96-20260712/EVALUATION.md`).
 
-**A new model was trained under that regime.** The July 12 campaign
-trained the same 4B base (LoRA, r=8, α=16) on an audited 10,034-trajectory
-corpus: a 9,984-row factory base plus a 50-row *long-horizon patch* that
-supervises only corrective continuations after late failures — write a bad
-ref, watch the build fail late, read the exact file, repair it, rebuild,
-validate, submit (`docs/long-horizon-sft-patch.md`). On the frozen factory
-gate: raw base 0/32, immediate predecessor adapter 10/32, final checkpoint
-**24/32** — the unique gate leader, margin 3 over the runner-up, selected
-before any Spider evaluation, with one disclosed mid-run restart
-(`factory-selection.json`).
+**A new model.** A new LoRA adapter on the same 4B base, trained July 12
+on 10,034 verified synthetic trajectories. Fifty of them are new, and
+teach one skill the corpus lacked: when something breaks late in an
+episode, read the file, fix it, rebuild, and finish — instead of looping.
+It worked, on synthetic tasks: on the fixed 32-episode selection gate, the
+untrained base passes 0, the previous best adapter passes 10, this one
+passes 24 (`factory-selection.json`). The whole run cost about thirteen
+dollars.
 
-**Its dev score is 0/16 — and the zero moved down the ladder.** The dev
-harness is deliberately stricter than the paper's runs: one deterministic
-attempt, 100 turns, no driver feedback, no automatic validation or submit
-assistance. Under it, all 16 dev episodes ended in repeated-action
-cutoffs. None submitted. In the taxonomy of §4: with every assist removed,
-the strongest factory checkpoint does not fail at rung 5 on real instances
-— it falls at rung 1, in the same week it scores 24/32 on the factory
-distribution. The reward-layer diagnosis of §6 stands, but this sharpens
-it: at 4B, under a strict protocol, the raw distribution gap between
-manufactured projects and real 92–324-turn repositories surfaces before
-the reward layer is even reached. The paper measured 8/8-versus-0; the
-postscript adds 24/32-versus-0-with-no-submission — a second, harsher
-measurement of the same distance.
+**Its real score: 0/16 — a worse zero than the paper's.** On the 16 dev
+tasks, the model never even submitted an answer: all 16 episodes stalled
+repeating the same tool call. The paper's models got further — they
+submitted, and failed the hidden comparison. Why the difference: the dev
+harness gives no help at all. One attempt, deterministic, no retries, no
+automatic validation, no driver nudges. The paper's runs had assists;
+these had none. What it means: there are two walls, not one. Before the
+hidden-answer problem of §6, there is a plainer problem — real
+repositories are longer and messier than the synthetic ones, and a 4B
+model that solves 24 of 32 synthetic projects still cannot operate a real
+one unassisted. What it does not mean: §6 is not overturned. The reward
+wall is still there; this model just hits the distribution wall first.
 
-**Branch 1 exists (distribution-matched tasks with buildable gold).** Nine
-executable repair tasks now come from real public dbt repositories pinned
-at exact commits — Fivetran's GitHub and Zendesk packages, dbt Labs'
-`dbt-project-evaluator`, Elementary's data-reliability package, Brooklyn
-Data's `dbt_artifacts`, a Danish-parliament warehouse, and others — across
-nine projects, eight organizations, and nine domains, with test projects
-reserved before task authoring. Admission is fail-closed and every task
-must prove both directions through the real environment: the gold repair
-replays to official reward 1, and a plausible wrong repair — one that
-passes dbt and 7/7 local validation checks — earns 0
-(`docs/reality-transfer-gate.md`). Each task is a manufactured instance of
-the rung-5-versus-6 gap with gold buildable from the repository's own
-logic: the training signal §6 said no local computation contained. No
-model score is reported on this lane yet; at 9 of a planned 48 tasks, the
-denominator is deliberately not yet called a benchmark.
+**Training tasks with real business rules.** Nine repair tasks now exist,
+built from real public dbt repositories pinned at exact commits —
+Fivetran, dbt Labs, Elementary, Brooklyn Data, and others. How each one is
+checked before it counts: the correct repair, replayed through the
+environment, must score 1 under the official semantics; and a plausible
+wrong repair — one that passes dbt and every local check — must score 0
+(`docs/reality-transfer-gate.md`). That pass-locally, fail-hidden trap is
+exactly what real Spider tasks do. The difference is that here the hidden
+answer is built from the repository's own logic, so for the first time it
+can pay training reward. What this is not yet: a benchmark or a result.
+Nine of a planned 48 tasks exist, and no model has been scored on them.
 
-**The factory learned to encode the missing semantics.** A new hidden-diff
-generator produces tasks from business-rule blueprints — NULL is not
-FALSE, declared aggregate grain, source-relative time windows, complete
-pair grids — each shipped with a known plausible-wrong solution that must
-score 0 (`uses_current_date`, `uses_equals_false`). Against this lane the
-record now contains the project's first GRPO and ECHO-objective RL runs
-(July 10), with a longer full-history stage pinned behind fail-closed
-readiness gates (`docs/rl-training-readiness.md`,
-`docs/echo-paper-faithfulness.md`). And one more clean negative for the
-pile: additional fixed-order SFT passes over the same corpus were tested
-against a predeclared gate and rejected — every later checkpoint scored
-below pass one
-(`eval_runs/fullhist609-long-sft-20260711/campaign-summary.json`).
+**RL: tried, then priced out.** A new family of synthetic tasks encodes
+the business-rule traps directly — NULL is not FALSE, wall-clock time
+windows, aggregate grain — each with a known wrong answer that must score
+0. Against those tasks the project ran its first GRPO and ECHO runs on
+July 10. They are single-step probes that prove the machinery works, not
+training runs, and the reason they stayed probes is cost, not doubt. SFT
+reuses trajectories generated once: 2,510 gradient steps in seven hours,
+about thirteen dollars (W&B `2thgo6lc`). RL must generate fresh episodes
+for every single step: eight rollouts of up to ~33,000 tokens each, at the
+~250 tokens/s one GPU sustains, is about a quarter-hour of sampling per
+gradient step — roughly two weeks of wall-clock for a 1,000-step run, for
+one experiment. Real instances (92–324 turns) would multiply that further.
+On a budget measured in honest signals per week (§9.6), that is not
+payable. The lane stays open, gated, and unscaled.
 
-**Why the RL runs are probes and not a campaign: the price of a gradient
-step.** This deserves to be explicit, because it is the reason the trained
-model is an SFT model and not an RL one. SFT and RL buy gradient steps at
-wildly different prices on this budget. SFT replays trajectories that were
-generated once, offline: the 10,034-trajectory corpus yields 2,510
-gradient steps in a single seven-hour run on the same $1.80/hr pod —
-about thirteen dollars (W&B `2thgo6lc`, 25,070 s of measured runtime). GRPO regenerates its data at every step: one step at the
-probe's contract (group of 8) means eight full environment episodes, each
-up to 64 turns × 512 sampled action tokens ≈ 33,000 tokens, and at the
-~250 tokens/s the 4B model sustains on one rented GPU
-(`artifacts/prime-hidden-diff-echo-20260710/rl-run/metrics.jsonl`), that
-is ~2 minutes of pure generation per rollout — call it a quarter-hour of
-serial sampling per gradient step, before prefill over a growing
-16,384-token history and before the environment runs a single dbt build.
-A modest 1,000-step GRPO campaign is therefore ~two weeks of wall-clock
-on this hardware for *one* experiment — against §9.6's actual scarce
-resource, honest signals per week, that price was never payable inside
-this project. Real instances would be worse still: episodes there run
-92–324 turns, not 64. So the RL lane is plumbing-proven and gated, and
-deliberately unscaled: single-step probes that verify the loss, the
-bridge, and the readiness contract, with the campaign left for a budget —
-or a rollout architecture — that can afford it.
+**Smaller results, quickly.** The scorer behavior described in §2 is now
+an audited, reproducible record instead of a claim. The leaderboard's #1
+harness — SignalPilot around Sonnet 4.6, at its exact public commit — was
+run on four of quaero's synthetic dev tasks and passed every execution the
+provider allowed (three; the fourth request was rejected before the model
+ran). That confirms a suspicion: the synthetic tasks are easy for a strong
+scaffold, so four harder task families were added
+(`docs/signalpilot-calibration.md`). On the organic tasks, GLM-5.2 went
+2/2 and DeepSeek V3.2 went 1/2 — its miss was exactly the known wrong
+answer. And training longer on the same data was tested and rejected:
+every extra pass over the corpus made the model worse.
 
-**The scorer characterization of §2 is now an audited artifact,** held in
-versioned reproduction records against the official Spider scorer. And the
-leaderboard's top harness got a calibration: SignalPilot's public scaffold
-around Sonnet 4.6, pinned at its exact commit, was run on quaero's four
-synthetic development representatives — after GLM-5.2 had already
-saturated them 4/4, it passed all three executions the provider allowed;
-the fourth request was rejected before any model activity, so this is an
-incomplete campaign, not a 3/4 score
-(`docs/signalpilot-calibration.md`). The top scaffold finds the synthetic
-dev slice easy, which is exactly the point — the synthetic distribution
-was never the hard part — and the finding forced four harder task families
-into the sealed benchmark. Named baselines landed too: on the organic
-development tasks GLM-5.2 is 2/2 and DeepSeek V3.2 is 1/2, its one miss
-being exactly the frozen plausible-wrong answer
-(`docs/named-model-organic-baseline.md`).
-
-**The adapter is published.** The gate-selected checkpoint — a 41 MB LoRA
-on Qwen3.5-4B — is public at
+**The adapter is public.** The selected checkpoint — a 41 MB LoRA on
+Qwen3.5-4B — is at
 [`teilomillet/quaero-qwen35-4b-sft-factory-longhorizon-20260711`](https://huggingface.co/teilomillet/quaero-qwen35-4b-sft-factory-longhorizon-20260711),
-immutable revision `bfd15721b06f288eb6c88e9bbc3be37de8f6d6ca`, with the
-factory table, the 0/16 dev result, the training-restart disclosure, and
-the full provenance hashes on the model card. Per the paper's own
-publication rule it is still not labeled a Spider2 model, because no
-Spider2 evidence supports that label — the card's first paragraph says so
-itself. What §8 promised on request is now, for this artifact, simply
-public.
+immutable revision `bfd15721b06f288eb6c88e9bbc3be37de8f6d6ca`. The model
+card opens by saying what this is not — a claimed Spider 2.0 solution —
+and reports both numbers, 24/32 synthetic and 0/16 dev. Why publish a
+zero: so the gap this paper measures can be checked by anyone. Load the
+adapter, run it, and both halves reproduce.
 
 ---
 

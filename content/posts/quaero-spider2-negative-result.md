@@ -501,7 +501,8 @@ Section 7 said the remaining ideas were dropped for lack of time, not
 because they failed. Five days after publication, time was found, and
 three of them were picked back up. Here is what happened, in plain terms.
 The score on real tasks is still zero. But the zero is now measured under
-stricter rules, and the training signal §6 said was missing now exists.
+stricter rules, and the training signal §6 said was missing finally has a
+proven recipe — though the training data itself is not built yet.
 
 **A development split.** The 64 scoreable benchmark tasks are now split
 once, in advance: 16 for development, 48 sealed away until the full
@@ -552,36 +553,40 @@ of the entry. If you are here to beat the leaderboard rather than to
 train, note what its top entries already know: today the scaffold does
 the operating, and the model supplies judgment inside it.
 
-**Training tasks with real business rules.** Nine repair tasks now exist,
-built from real public dbt repositories pinned at exact commits —
-Fivetran, dbt Labs, Elementary, Brooklyn Data, and others. How each one is
-checked before it counts: the correct repair, replayed through the
-environment, must score 1 under the official semantics; and a plausible
-wrong repair — one that passes dbt and every local check — must score 0
-(`docs/reality-transfer-gate.md`). That pass-locally, fail-hidden trap is
-exactly what real Spider tasks do. The difference is that here the hidden
-answer is built from the repository's own logic, so for the first time it
-can pay training reward. What this is not yet: a benchmark or a result.
-Nine of a planned 48 tasks exist, and no model has been scored on them.
+**Real-repository tasks with buildable gold — evaluation first.** Nine
+repair tasks now exist, built from real public dbt repositories pinned at
+exact commits — Fivetran, dbt Labs, Elementary, Brooklyn Data, and others.
+Their role is easy to mix up, so to be precise: these nine are
+*evaluation* tasks. They form a transfer audit with its own dev/test
+split — the test projects were reserved before any task was written — and
+they measure whether behavior learned on synthetic projects carries to
+real ones. They are not training data, and training on them would destroy
+them. How each one is checked before it counts: the correct repair,
+replayed through the environment, must score 1 under the official
+semantics; and a plausible wrong repair — one that passes dbt and every
+local check — must score 0 (`docs/reality-transfer-gate.md`). That
+pass-locally, fail-hidden trap is exactly what real Spider tasks do —
+reproduced, for the first time, with an answer buildable from the
+repository's own logic.
 
-Why this matters if you are the one training: everything else in this
-paper trains a model against signals it can already satisfy. These
-tasks are the first whose reward a model can only earn by getting the
-business semantics right — the exact thing the benchmark tests and the
-factory could not teach. The recipe is worth copying for any agentic
-benchmark, and it is short: take a real public repository, pin the
-exact commit, build it, keep its outputs as the hidden answer, break
-something, and keep the task only if both checks hold — the true repair
-scores 1, and a plausible wrong repair that passes every local check
-scores 0. That second check is the whole value. A task whose verifier
-accepts the wrong repair teaches your model nothing; it just moves the
-8/8-versus-0 gap somewhere new. Two cautions before you use these for
-anything public: the upstream code may sit in a base model's
-pretraining data, so results on such tasks are training signal and
-transfer evidence, never a clean benchmark score — and whether closing
-this training gap actually moves the official number is exactly the
-experiment that has not been run. Nine tasks exist; 39 remain; that
-experiment is the open invitation.
+What this unblocks, if you are the one training: the construction method,
+not these nine tasks. §8 said the branch to fund first was training data
+derived from real repositories; the blocker was proving such tasks can be
+built and verified at all. That proof now exists, and the recipe is
+short: take a real public repository, pin the exact commit, build it,
+keep its outputs as the hidden answer, break something, and keep the task
+only if both checks hold — the true repair scores 1, and a plausible
+wrong repair that passes every local check scores 0. That second check is
+the whole value: a task whose verifier accepts the wrong repair teaches a
+model nothing. Three rules before you use any of it. Mint training tasks
+from repositories disjoint from the ones you evaluate on — one repository
+must never appear on both sides. Remember that public code may sit in a
+base model's pretraining data, so scores on such tasks are transfer
+evidence, never a clean benchmark score. And know what has not happened
+here: the training corpus this recipe makes possible has not been built,
+and whether it moves the official number is exactly the experiment still
+waiting to be run. Nine evaluation tasks exist of a planned 48; the
+training harvest is the open invitation.
 
 **RL: tried, then priced out.** A new family of synthetic tasks encodes
 the business-rule traps directly — NULL is not FALSE, wall-clock time

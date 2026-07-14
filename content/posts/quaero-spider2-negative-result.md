@@ -1,9 +1,9 @@
 +++
 title = 'Why Trained Open Models Score Zero on Spider 2.0-DBT'
 date = 2026-07-09
-lastmod = 2026-07-10
+lastmod = 2026-07-15
 draft = false
-description = 'Spider 2.0-DBT drops an AI agent into a real dbt data-transformation project and scores its output tables against hidden gold tables — exact match, no partial credit. The leaderboard is held by harnesses around closed frontier models (65.6%, Claude Sonnet 4.6). I spent four time-boxed weeks trying to beat it with trained open models instead: 279 commits, 140 training configs, 94 tracked runs, models from 4B to 35B. The trained models do the entire job on manufactured lookalike tasks (8/8) and score 0 on every real instance tested: everything locally checkable passes, the hidden check fails. A negative result with a diagnosis — the failure is at the reward layer, not the protocol layer — plus a handoff for continuing on this benchmark and a playbook for training open models on agentic benchmarks. Code available on request; will open-source with demand.'
+description = 'Spider 2.0-DBT drops an AI agent into a real dbt data-transformation project and scores its output tables against hidden gold tables — exact match, no partial credit. The leaderboard is held by harnesses around closed frontier models (65.6%, Claude Sonnet 4.6). I spent four time-boxed weeks trying to beat it with trained open models instead: 279 commits, 140 training configs, 94 tracked runs, models from 4B to 35B. The trained models do the entire job on manufactured lookalike tasks (8/8) and score 0 on every real instance tested: everything locally checkable passes, the hidden check fails. A negative result with a diagnosis — the failure is at the reward layer, not the protocol layer — plus a handoff for continuing on this benchmark and a playbook for training open models on agentic benchmarks. Code available on request; will open-source with demand. Postscript (2026-07-15): the project resumed — the unfunded branches got funded, a new gate-selected adapter is public on Hugging Face, and the zero got stricter.'
 tags = ['reinforcement-learning', 'RLVR', 'spider2', 'text-to-sql', 'dbt', 'negative-result', 'playbook', 'quaero', 'retrain']
 
 [params]
@@ -36,6 +36,15 @@ tags = ['reinforcement-learning', 'RLVR', 'spider2', 'text-to-sql', 'dbt', 'nega
 > [xlang-ai/Spider2#156](https://github.com/xlang-ai/Spider2/issues/156),
 > alongside [#200](https://github.com/xlang-ai/Spider2/issues/200) and
 > [#201](https://github.com/xlang-ai/Spider2/issues/201).
+
+> **Update (2026-07-15).** The project resumed, and the branches §7 listed as
+> "abandoned unfunded" are funded and moving: a predeclared 16-task dev split
+> with the remaining 48 sealed, a new gate-selected adapter (factory 24/32,
+> Spider dev 0/16 — now
+> [public on Hugging Face](https://huggingface.co/teilomillet/quaero-qwen35-4b-sft-factory-longhorizon-20260711)),
+> executable repair tasks built from real public dbt repositories with
+> buildable gold, and the project's first GRPO/ECHO runs. Full detail in the
+> [postscript](#postscript-2026-07-15-the-unfunded-branches-funded).
 
 ## Summary
 
@@ -485,6 +494,131 @@ under four weeks of daily use.
 [teilomillet@gmail.com](mailto:teilomillet@gmail.com) ·
 [github.com/teilomillet](https://github.com/teilomillet) ·
 [@teilomillet](https://twitter.com/teilomillet)
+
+## Postscript (2026-07-15): the unfunded branches, funded
+
+Section 7 closed the project with a list of branches "abandoned unfunded,
+not falsified." Five days after publication a second allocation reopened
+three of them. This postscript reports what the record shows since, in the
+same terms as the paper. The short version: the zero survived — but it is
+now stricter, better measured, and finally has the two things §6 said it
+lacked: a legitimate dev signal, and training tasks whose gold can be
+built.
+
+**A dev-signal budget exists (branch 2).** The 64 scoreable instances are
+now formally split: a predeclared 16-task development slice, and a 48-task
+remainder that stays sealed "until the complete SFT plus RL recipe is
+frozen" (`run_logs/prime-sft-rtxpro96-20260712/EVALUATION.md`). Checkpoint
+selection is forbidden from touching Spider at all: candidates are ranked
+only by a frozen 32-episode factory gate, and the Spider dev run is
+report-only, after selection. Failing against gold — the only way the
+business-semantics failures of §6 are discoverable — is now possible
+without contaminating anything.
+
+**A new model was trained under that regime.** The July 12 campaign
+trained the same 4B base (LoRA, r=8, α=16) on an audited 10,034-trajectory
+corpus: a 9,984-row factory base plus a 50-row *long-horizon patch* that
+supervises only corrective continuations after late failures — write a bad
+ref, watch the build fail late, read the exact file, repair it, rebuild,
+validate, submit (`docs/long-horizon-sft-patch.md`). On the frozen factory
+gate: raw base 0/32, immediate predecessor adapter 10/32, final checkpoint
+**24/32** — the unique gate leader, margin 3 over the runner-up, selected
+before any Spider evaluation, with one disclosed mid-run restart
+(`factory-selection.json`).
+
+**Its dev score is 0/16 — and the zero moved down the ladder.** The dev
+harness is deliberately stricter than the paper's runs: one deterministic
+attempt, 100 turns, no driver feedback, no automatic validation or submit
+assistance. Under it, all 16 dev episodes ended in repeated-action
+cutoffs. None submitted. In the taxonomy of §4: with every assist removed,
+the strongest factory checkpoint does not fail at rung 5 on real instances
+— it falls at rung 1, in the same week it scores 24/32 on the factory
+distribution. The reward-layer diagnosis of §6 stands, but this sharpens
+it: at 4B, under a strict protocol, the raw distribution gap between
+manufactured projects and real 92–324-turn repositories surfaces before
+the reward layer is even reached. The paper measured 8/8-versus-0; the
+postscript adds 24/32-versus-0-with-no-submission — a second, harsher
+measurement of the same distance.
+
+**Branch 1 exists (distribution-matched tasks with buildable gold).** Nine
+executable repair tasks now come from real public dbt repositories pinned
+at exact commits — Fivetran's GitHub and Zendesk packages, dbt Labs'
+`dbt-project-evaluator`, Elementary's data-reliability package, Brooklyn
+Data's `dbt_artifacts`, a Danish-parliament warehouse, and others — across
+nine projects, eight organizations, and nine domains, with test projects
+reserved before task authoring. Admission is fail-closed and every task
+must prove both directions through the real environment: the gold repair
+replays to official reward 1, and a plausible wrong repair — one that
+passes dbt and 7/7 local validation checks — earns 0
+(`docs/reality-transfer-gate.md`). Each task is a manufactured instance of
+the rung-5-versus-6 gap with gold buildable from the repository's own
+logic: the training signal §6 said no local computation contained. No
+model score is reported on this lane yet; at 9 of a planned 48 tasks, the
+denominator is deliberately not yet called a benchmark.
+
+**The factory learned to encode the missing semantics.** A new hidden-diff
+generator produces tasks from business-rule blueprints — NULL is not
+FALSE, declared aggregate grain, source-relative time windows, complete
+pair grids — each shipped with a known plausible-wrong solution that must
+score 0 (`uses_current_date`, `uses_equals_false`). Against this lane the
+record now contains the project's first GRPO and ECHO-objective RL runs
+(July 10), with a longer full-history stage pinned behind fail-closed
+readiness gates (`docs/rl-training-readiness.md`,
+`docs/echo-paper-faithfulness.md`). And one more clean negative for the
+pile: additional fixed-order SFT passes over the same corpus were tested
+against a predeclared gate and rejected — every later checkpoint scored
+below pass one
+(`eval_runs/fullhist609-long-sft-20260711/campaign-summary.json`).
+
+**Why the RL runs are probes and not a campaign: the price of a gradient
+step.** This deserves to be explicit, because it is the reason the trained
+model is an SFT model and not an RL one. SFT and RL buy gradient steps at
+wildly different prices on this budget. SFT replays trajectories that were
+generated once, offline: the 10,034-trajectory corpus yields 2,510
+gradient steps in one overnight run on the same $1.80/hr pod — roughly
+twenty dollars. GRPO regenerates its data at every step: one step at the
+probe's contract (group of 8) means eight full environment episodes, each
+up to 64 turns × 512 sampled action tokens ≈ 33,000 tokens, and at the
+~250 tokens/s the 4B model sustains on one rented GPU
+(`artifacts/prime-hidden-diff-echo-20260710/rl-run/metrics.jsonl`), that
+is ~2 minutes of pure generation per rollout — call it a quarter-hour of
+serial sampling per gradient step, before prefill over a growing
+16,384-token history and before the environment runs a single dbt build.
+A modest 1,000-step GRPO campaign is therefore ~two weeks of wall-clock
+on this hardware for *one* experiment — against §9.6's actual scarce
+resource, honest signals per week, that price was never payable inside
+this project. Real instances would be worse still: episodes there run
+92–324 turns, not 64. So the RL lane is plumbing-proven and gated, and
+deliberately unscaled: single-step probes that verify the loss, the
+bridge, and the readiness contract, with the campaign left for a budget —
+or a rollout architecture — that can afford it.
+
+**The scorer characterization of §2 is now an audited artifact,** held in
+versioned reproduction records against the official Spider scorer. And the
+leaderboard's top harness got a calibration: SignalPilot's public scaffold
+around Sonnet 4.6, pinned at its exact commit, was run on quaero's four
+synthetic development representatives — after GLM-5.2 had already
+saturated them 4/4, it passed all three executions the provider allowed;
+the fourth request was rejected before any model activity, so this is an
+incomplete campaign, not a 3/4 score
+(`docs/signalpilot-calibration.md`). The top scaffold finds the synthetic
+dev slice easy, which is exactly the point — the synthetic distribution
+was never the hard part — and the finding forced four harder task families
+into the sealed benchmark. Named baselines landed too: on the organic
+development tasks GLM-5.2 is 2/2 and DeepSeek V3.2 is 1/2, its one miss
+being exactly the frozen plausible-wrong answer
+(`docs/named-model-organic-baseline.md`).
+
+**The adapter is published.** The gate-selected checkpoint — a 41 MB LoRA
+on Qwen3.5-4B — is public at
+[`teilomillet/quaero-qwen35-4b-sft-factory-longhorizon-20260711`](https://huggingface.co/teilomillet/quaero-qwen35-4b-sft-factory-longhorizon-20260711),
+immutable revision `bfd15721b06f288eb6c88e9bbc3be37de8f6d6ca`, with the
+factory table, the 0/16 dev result, the training-restart disclosure, and
+the full provenance hashes on the model card. Per the paper's own
+publication rule it is still not labeled a Spider2 model, because no
+Spider2 evidence supports that label — the card's first paragraph says so
+itself. What §8 promised on request is now, for this artifact, simply
+public.
 
 ---
 

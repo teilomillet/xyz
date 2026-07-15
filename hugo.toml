@@ -4,9 +4,10 @@ title = "teïlo"
 
 [params]
 author = "Teïlo Millet"
-description = "I build open-source tools for language models and write about AI."
+description = "Research and writing on large language models — reinforcement learning, credit assignment, evaluation — negative results included. Plus open-source training tools."
 
 github = "teilomillet"
+huggingface = "teilomillet"
 twitter = "teilomillet"
 linkedin = "teilomillet"
 email = "teilomillet@gmail.com"

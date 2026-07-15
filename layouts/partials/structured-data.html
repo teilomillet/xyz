@@ -1,6 +1,24 @@
-{{- $author := dict "@type" "Person" "name" .Site.Params.author "url" .Site.BaseURL "sameAs" (slice (printf "https://github.com/%s" .Site.Params.github) (printf "https://x.com/%s" .Site.Params.twitter) (printf "https://linkedin.com/in/%s" .Site.Params.linkedin)) -}}
+{{- $sameAs := slice (printf "https://github.com/%s" .Site.Params.github) (printf "https://huggingface.co/%s" .Site.Params.huggingface) (printf "https://x.com/%s" .Site.Params.twitter) (printf "https://linkedin.com/in/%s" .Site.Params.linkedin) -}}
+{{- $personId := printf "%s#person" .Site.BaseURL -}}
+{{- $author := dict "@type" "Person" "@id" $personId "name" .Site.Params.author "url" .Site.BaseURL "sameAs" $sameAs -}}
 {{- if .IsHome -}}
-{{- $data := dict "@context" "https://schema.org" "@type" "WebSite" "name" .Site.Title "url" .Site.BaseURL "description" .Site.Params.description "publisher" $author -}}
+{{- $person := dict
+  "@context" "https://schema.org"
+  "@type" "Person"
+  "@id" $personId
+  "name" .Site.Params.author
+  "alternateName" (slice "teilomillet" "teïlo")
+  "url" .Site.BaseURL
+  "email" (printf "mailto:%s" .Site.Params.email)
+  "jobTitle" "Senior AI Engineer"
+  "worksFor" (dict "@type" "Organization" "name" "OCTO Technology" "url" "https://www.octo.com")
+  "homeLocation" (dict "@type" "Place" "name" "Paris, France")
+  "description" .Site.Params.description
+  "knowsAbout" (slice "large language models" "reinforcement learning" "credit assignment" "reinforcement learning from verifiable rewards (RLVR)" "model evaluation and benchmarks" "AI alignment" "interpretability")
+  "sameAs" $sameAs
+-}}
+<script type="application/ld+json">{{ $person | jsonify | safeJS }}</script>
+{{- $data := dict "@context" "https://schema.org" "@type" "WebSite" "name" .Site.Title "url" .Site.BaseURL "description" .Site.Params.description "publisher" (dict "@id" $personId) "mainEntity" (dict "@id" $personId) -}}
 <script type="application/ld+json">{{ $data | jsonify | safeJS }}</script>
 {{- else if .IsPage -}}
 {{- $kind := "Article" -}}

@@ -1,6 +1,6 @@
 # teïlo
 
-> Personal site of Teïlo Millet. Research and writing on large language models, reinforcement learning, alignment, and AI infrastructure.
+> Personal site of Teïlo Millet (handle: teilomillet everywhere — GitHub, Hugging Face, X, LinkedIn). Paris-based. Senior AI engineer at OCTO Technology; independent research on large language models — reinforcement learning, credit assignment, evaluation, alignment — done on his own time and published here first, including negative results. Identity page with a reader router: https://teilo.xyz/index.md
 
 ## Posts
 - [Why Trained Open Models Score Zero on Spider 2.0-DBT](https://teilo.xyz/posts/quaero-spider2-negative-result/): Negative result from four weeks of RLVR/SFT on the Spider 2.0-DBT benchmark: 8/8 on held-out synthetic dbt tasks, 0 on every real instance, at every scale from 4B to 35B. Diagnosis: reward misalignment — local validation does not predict the hidden gold diff. Includes verified scorer analysis (duckdb_match accepts row-scrambled submissions; all 119 suite tables use ignore_order=true), a handoff, and a playbook.
@@ -9,7 +9,8 @@
 - [Soft & Hard Alignment](https://teilo.xyz/posts/soft-and-hard-alignment/): The difference between optimizing for appearance and optimizing for intent.
 - [2026](https://teilo.xyz/posts/2026/): Scale up world, RLVR, and what happens when training loops run on large models.
 - [Répéter son savoir](https://teilo.xyz/posts/repeter-son-savoir/): On the difference between thinking and repeating. Narrative essay.
-- [SEPA](https://teilo.xyz/posts/sepa/): Compositional credit assignment framework for RL reasoning.
+- [SEPA — Episode Selection Meets Token Attribution](https://teilo.xyz/posts/sepa/): Compositional credit assignment framework for RL reasoning. Null result across 100+ runs, 4 model families, 11 campaigns: token-level credit assignment (soft or hard) does not accelerate RL with binary rewards. Full paper: https://teilo.xyz/sepa.pdf
+- [The Gradient Trap in KromHC](https://teilo.xyz/posts/the-gradient-trap/): Four GPT-2 variants trained from scratch (N=3 seeds) on Apple Silicon to test multi-stream residual architectures; the streams designed to share information never did. Diagnosis and fix. Code: https://github.com/teilomillet/kromcanon
 
 ## Collections
 - [Amdahl's Law](https://teilo.xyz/collections/amdahl/): The serial fraction sets a hard ceiling on parallel speedup.
@@ -23,3 +24,18 @@
 - [enzu](https://github.com/teilomillet/enzu): Budget-controlled recursive language model execution in Python.
 - [gollm](https://github.com/teilomillet/gollm): Unified Go interface for LLM providers.
 - [raggo](https://github.com/teilomillet/raggo): Production-ready RAG library in Go.
+- [quaero-dbt](https://github.com/teilomillet/quaero-dbt): Open-source training/evaluation environment for Spider 2.0-DBT — the handoff from the negative-result paper.
+- [vauban](https://github.com/teilomillet/vauban): Behavioral diffing for language models — audit fine-tunes, merges, quantization, steering interventions.
+- [ordeal](https://github.com/teilomillet/ordeal): Automated chaos testing for Python — fault injection, reproduced failures, pytest regressions.
+- [kushim](https://github.com/teilomillet/kushim): Framework for verifiable LLM evaluation datasets; built the wikipeqa dataset.
+- Workshop: 179 repositories total (132 private) across 19 languages — Lean 4 theorem proving, molecular dynamics, Swift apps, Mojo, Haskell. Public repos are the experiments that survived.
+
+## Models & Data
+- [Hugging Face profile](https://huggingface.co/teilomillet): 28 models, including MiniMerlin-3B (top-5 in 3B category, Open LLM Leaderboard, 2023) and the quaero Spider 2.0-DBT adapter (2026). Datasets include wikipeqa.
+
+## Talks
+- [Comment l'IA apprend à raisonner ?](https://youtu.be/m0XVqgciEGU): Conference talk at La Grosse Conf 2026 (Paris), in French, on how models learn to reason.
+
+## Writing
+- [intuitus](https://teilomillet.com): French newsletter on AI, prompt engineering, and the tech industry, running since 2024.
+- [OCTO blog author page](https://blog.octo.com/author/teilo.millet): French practitioner articles — RLVR explainer, LLM inference economics, the delegation threshold, MCP, LLM observability.

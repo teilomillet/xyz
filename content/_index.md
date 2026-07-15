@@ -6,18 +6,18 @@ lastmod = 2026-07-15
 
 ## hello
 
-I'm Teïlo. I live in Paris. I've been doing a lot of things, from logistic to sales and now I am in the tech, specifically the AI industry, where I create systems and develope them until they go into production. I do 0 -> 1 and 1 -> 100. 
+I'm Teïlo. I live in Paris. I've done many things, from logistics to sales, and now I work in tech, specifically in the AI industry, where I create systems and develop them until they go into production. I do 0 -> 1 and 1 -> 100.
 
 Day job: senior AI engineer at [OCTO](https://www.octo.com). The rest of this page happens on my own time.
 
-At the moment, on my free time I'm learning about interpretability of language model. I build a tool to make some experiments in order to learn things.
+At the moment, in my free time, I'm learning about language model interpretability. I'm building a tool to run experiments and learn.
 
 ## what I like
 
-- I enjoy taking photos. Mostly slice of life, I enjoy capturing the moment and want to do that more often. soon I will post about them on teilo.works. 
-- I enjoy listening to music, I used to make a monthly playlist of my listening and I am learning to DJ. (https://www.youtube.com/@teilomillet/playlists)
-- I like playing video games, mostly shooters even if I had a great amount of time playing and watching competitive SC2. I used to be top 150 on BattleAces. 
-- Lately I enjoy learning more about robotics and 3D print. I believed the next cambrian explosion will be when AI and robotics merge together. We might witness this in our lifetime. i am learning to use onshape for now to build things. and am learning to draw as well.
+- I enjoy taking photos, mostly slices of life. I enjoy capturing moments and want to do so more often. Soon, I will post them on teilo.works.
+- I enjoy listening to music. I used to make a monthly playlist of what I listened to, and I am learning to DJ. (https://www.youtube.com/@teilomillet/playlists)
+- I like playing video games, mostly shooters, although I spent a great deal of time playing and watching competitive SC2. I used to be in the top 150 on Battle Aces.
+- Lately, I've enjoyed learning more about robotics and 3D printing. I believe the next Cambrian explosion will happen when AI and robotics merge. We might witness this in our lifetime. For now, I am learning to use Onshape to build things, and I am learning to draw as well.
 
 ## things I made
 
@@ -30,4 +30,4 @@ At the moment, on my free time I'm learning about interpretability of language m
 
 ## say hi
 
-[teilomillet@gmail.com](mailto:teilomillet@gmail.com) · [@teilomillet](https://x.com/teilomillet) · same handle on [github](https://github.com/teilomillet), [huggingface](https://huggingface.co/teilomillet), [linkedin](https://linkedin.com/in/teilomillet) — if the handle matches, it's most likely is me.
+[i@teilomillet.com](mailto:i@teilomillet.com) · [teilomillet@gmail.com](mailto:teilomillet@gmail.com) · [@teilomillet](https://x.com/teilomillet) · same handle on [GitHub](https://github.com/teilomillet), [Hugging Face](https://huggingface.co/teilomillet), [LinkedIn](https://linkedin.com/in/teilomillet) — if the handle matches, it's most likely me.
